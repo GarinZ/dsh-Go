@@ -52,9 +52,29 @@ runtime/host-remote/install.sh desktop ./runtime/host-remote/dist/ds-harness-rem
 
 脚本只是转发给 `dsh plugin --profile <profile> add <tgz>`，用当前 `DSH_HOME` 下的 profile。默认 profile 是 `desktop`，可用第一个参数或 `DSH_PROFILE` 覆盖。
 
-安装后**重启主机进程**（`dsh web` 或桌面 App），再让 DSH Go 重连。新的 `harness.transport.describe` 应带 `remote.result.only.v1`；主机没装补丁时，App 端的开关应不可用。
-
 补丁不修改包版本号：`package.json` 仍是 `0.6.5`，这样上游的 `verify-version-sync` 才能通过。区分方式是 tgz 文件名的 `-result-only` 后缀；`dsh plugin add` 安装本地文件会替换同版本依赖。
+
+安装后让主机加载新代码：启用了 HMR 的主机可以用 `reload.sh` 原地重载（见下节），否则**重启主机进程**（`dsh web` 或桌面 App），再让 DSH Go 重连。新的 `harness.transport.describe` 应带 `remote.result.only.v1`；主机没装补丁时，App 端的开关应不可用。
+
+### 不重启热加载
+
+主机进程启用了 HMR 时（桌面 App 默认如此；`dsh web` 由启动器提供 `profileContext` 时），可以用脚本原地换插件，不需要重启：
+
+```bash
+runtime/host-remote/reload.sh desktop
+# 或显式指定 tgz：
+runtime/host-remote/reload.sh desktop ./runtime/host-remote/dist/ds-harness-remote-0.6.5-result-only.tgz
+```
+
+它做三件事：
+
+1. 用 `dsh plugin --profile <profile> add <tgz>` 把新包放进 profile；
+2. `touch` 已安装的 `node_modules/ds-harness-remote/dist/index.js`，让 HMR 的重组合看到文件变了；
+3. 改写 profile 的 `cordis.patch.yml`，删掉旧的 `# dsh-go hot reload trigger` 行，再追加一行新的触发注释。
+
+只跑 `dsh plugin add` 不会通知 HMR；只 `touch` patch 文件也不会触发。必须让已加载的插件文件变化，并真正改动 profile 配置内容。成功时主机日志会先出现 `[ds-harness-remote] host runtime stopped`，随后再次 `host identity ready`；主机进程 PID 不变。
+
+已在桌面 host 上验证：重载前后 PID 都是 90185，日志在 2026-11-18T13:28:59.617Z 出现 `host runtime stopped`，随后插件重新启动。HMR 关闭时脚本仍会安装并提示重启。
 
 回滚：重新安装 npm 上的官方版本，或换回之前的 tgz，然后重启主机。
 

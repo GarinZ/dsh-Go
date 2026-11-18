@@ -20,5 +20,7 @@ command -v dsh >/dev/null 2>&1 || { echo "dsh not found in PATH" >&2; exit 1; }
 echo "==> install $(basename "$TGZ") into profile $PROFILE"
 dsh plugin --profile "$PROFILE" add "$TGZ"
 echo
-echo "installed. restart the host process (dsh web / desktop app) to load the new bundle,"
-echo "then reconnect DSH Go. The host should advertise remote.result.only.v1."
+echo "installed. If the host has HMR enabled, hot-load it without restarting:"
+echo "  $ROOT/reload.sh $PROFILE"
+echo "otherwise restart the host process (dsh web / desktop app), then reconnect DSH Go."
+echo "The host should advertise remote.result.only.v1."

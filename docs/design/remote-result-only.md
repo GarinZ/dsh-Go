@@ -297,6 +297,7 @@ runtime/host-remote/
   patches/0001-result-only.patch
   build.sh                 # 取 GitHub 源码归档 → 校验 → 打补丁 → tsc + vitest → npm pack
   install.sh               # dsh plugin --profile <p> add <打包出的 tgz>
+  reload.sh                # 安装后触发 HMR 重组合；HMR 关闭时仍要重启
 ```
 
 `build.sh` 从 `upstream.json` 的 GitHub 源码归档拉取（**不是 npm tarball**：npm 包不含 `src/` 与 `tests/`），校验 SHA-256，应用补丁，跑 `pnpm check` 与串行 vitest，产出 `ds-harness-remote-0.6.5-result-only.tgz`。`install.sh` 转发给 `dsh plugin add`（本质是 profile 里的 pnpm）：
@@ -306,6 +307,8 @@ dsh plugin --profile desktop add ./dist/ds-harness-remote-0.6.5-result-only.tgz
 ```
 
 包版本号保持 `0.6.5`（上游 `verify-version-sync` 会检查），用产物文件名的 `-result-only` 后缀区分；安装本地 tgz 会替换同版本依赖。
+
+启用了 HMR 的主机不必重启：`reload.sh` 安装后 `touch` 已装包的 `dist/index.js`，再改写 profile 的 `cordis.patch.yml` 触发重组合。桌面 host 实测插件先 `host runtime stopped` 再重新 ready，PID 不变。只跑 `dsh plugin add` 或只 `touch` patch 都不会触发；HMR 关闭时仍需重启主机。
 
 补丁内容：
 
