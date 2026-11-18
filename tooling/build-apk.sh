@@ -36,6 +36,11 @@ usage() { sed -n '2,23p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
 die() { echo "build-apk: $*" >&2; exit 1; }
 
 flavor=arm64 mode=release target='' code='' name='' dry=0 keep_daemon=0 want_beta=0
+# This personal fork ships its own releases. Point the app at them, and do not
+# consult the official download copy: its update.json would offer an official
+# build over this one. `DSH_UPDATE_MIRROR` may still set a self-hosted copy.
+update_repo=${DSH_UPDATE_REPO:-GarinZ/dsh-Go}
+update_mirror=${DSH_UPDATE_MIRROR-}
 extra=()
 while (($#)); do
   case "$1" in
@@ -116,7 +121,8 @@ fi
 commands=()
 for f in "${flavors[@]}"; do
   cmd=(flutter build apk "--$mode" --flavor "$f" --target-platform "$(platform_of "$f")"
-    --build-name "$name" --build-number "$code" "--dart-define=DSH_APP_VERSION=$name+$code")
+    --build-name "$name" --build-number "$code" "--dart-define=DSH_APP_VERSION=$name+$code"
+    "--dart-define=DSH_UPDATE_REPO=$update_repo" "--dart-define=DSH_UPDATE_MIRROR=$update_mirror")
   [[ -n $target ]] && cmd+=(-t "$target")
   ((beta)) && cmd+=("--dart-define-from-file=$beta_json")
   cmd+=("${extra[@]}")

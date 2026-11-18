@@ -20,8 +20,15 @@
 ///   replaces the public GitHub accelerator list (empty string = none).
 library;
 
+/// The upstream project: community feed, star prompt and share links.
+///
+/// Personal builds keep these pointed at the project they are based on. The
+/// release feed can be moved independently with `DSH_UPDATE_REPO` (set by
+/// `tooling/build-apk.sh` to this fork's repository).
+const projectRepo = 'ccch1mneyyy/dsh-go';
+
 /// GitHub repository the releases live in.
-const updateRepo = 'ccch1mneyyy/dsh-go';
+const updateRepo = String.fromEnvironment('DSH_UPDATE_REPO', defaultValue: projectRepo);
 
 /// `releases/latest` of the REST API: tag, notes, assets with sizes and
 /// SHA-256 digests. Unauthenticated: 60 requests per hour per IP.
