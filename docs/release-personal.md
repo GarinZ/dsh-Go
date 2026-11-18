@@ -2,6 +2,10 @@
 
 这份流程只用于本仓库（`GarinZ/dsh-Go`）的个人构建，不适用于上游 `ccch1mneyyy/dsh-go` 的正式发版。目标：同一把个人签名证书、版本号递增、GitHub Release 作为更新源，App 内点一下就能升级。
 
+## 首次切换
+
+已经安装的旧版本如果还指向官方更新源，不会自动看到本仓库的 Release。需要手动安装一次带 `DSH_UPDATE_REPO=GarinZ/dsh-Go` 的版本；从这一版起，后续版本才能在 App 内更新。
+
 ## 版本号
 
 - 版本名使用 `X.Y.Z-resultonly.N`，例如 `1.2.1-resultonly.1`。
