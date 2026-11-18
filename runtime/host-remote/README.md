@@ -1,6 +1,6 @@
 # ds-harness-remote 结果模式补丁
 
-远程主机侧的 `ds-harness-remote` 补丁：在 0.6.5 上增加 `remote.result.only.v1` 能力，让手机在会话 follow、历史分页时只同步「状态 + 最终答复」，不同步工具调用、思考流、子代理和作业记录。
+远程主机侧的 `ds-harness-remote` 补丁：在 0.6.6 上增加 `remote.result.only.v1` 能力，让手机在会话 follow、历史分页时只同步「状态 + 最终答复」，不同步工具调用、思考流、子代理和作业记录。
 
 设计依据与效果样例见 [docs/design/remote-result-only.md](../../docs/design/remote-result-only.md)。
 
@@ -17,7 +17,7 @@
 
 ## 为什么是补丁而不是 fork
 
-上游 `packages/plugin` 有 24k 行源码和提交过的 `dist`，整树复制会让每次上游变动都变成一次手工合并。这里只保留一个补丁，钉在 0.6.5 的 gitHead 上；`build.sh` 从 GitHub 源码归档重新构建（**不能用 npm tarball**：npm 包的 `files` 不含 `src/` 和 `tests/`）。
+上游 `packages/plugin` 有大量源码和提交过的 `dist`，整树复制会让每次上游变动都变成一次手工合并。这里只保留一个补丁，钉在 0.6.6 的 gitHead 上；`build.sh` 从 GitHub 源码归档重新构建（**不能用 npm tarball**：npm 包的 `files` 不含 `src/` 和 `tests/`）。
 
 `upstream.json` 记录包名、版本、gitHead、源码归档 URL、SHA-256、pnpm 版本和补丁路径。构建脚本只信这个文件。
 
@@ -27,7 +27,7 @@
 
 ```bash
 runtime/host-remote/build.sh
-# 产物：runtime/host-remote/dist/ds-harness-remote-0.6.5-result-only.tgz
+# 产物：runtime/host-remote/dist/ds-harness-remote-0.6.6-result-only.tgz
 ```
 
 脚本依次做：
@@ -35,7 +35,7 @@ runtime/host-remote/build.sh
 1. 从 `source` 下载源码归档到 `${DSH_HOST_REMOTE_CACHE:-~/.cache/dsh-go/host-remote}`，校验 SHA-256；
 2. 解包到干净的构建目录，应用 `patches/0001-result-only.patch`；
 3. `pnpm install --frozen-lockfile`，构建 `./packages/**`；
-4. 在 `packages/plugin` 跑 `tsc -p tsconfig.test.json`（`pnpm check`）和全量 vitest；
+4. 在 `packages/plugin` 跑 `tsc -p tsconfig.test.json`（`pnpm check`）和插件全量 vitest；
 5. `npm pack`，把产物改名为 `...-result-only.tgz`。
 
 可用环境变量覆盖缓存和输出目录：`DSH_HOST_REMOTE_CACHE`、`DSH_HOST_REMOTE_OUT`。
@@ -47,17 +47,17 @@ runtime/host-remote/build.sh
 ```bash
 runtime/host-remote/install.sh desktop
 # 或显式指定 tgz：
-runtime/host-remote/install.sh desktop ./runtime/host-remote/dist/ds-harness-remote-0.6.5-result-only.tgz
+runtime/host-remote/install.sh desktop ./runtime/host-remote/dist/ds-harness-remote-0.6.6-result-only.tgz
 ```
 
 脚本只是转发给 `dsh plugin --profile <profile> add <tgz>`，用当前 `DSH_HOME` 下的 profile。默认 profile 是 `desktop`，可用第一个参数或 `DSH_PROFILE` 覆盖。
 
-补丁不修改包版本号：`package.json` 仍是 `0.6.5`，这样上游的 `verify-version-sync` 才能通过。区分方式是 tgz 文件名的 `-result-only` 后缀；`dsh plugin add` 安装本地文件会替换同版本依赖。
+补丁不修改包版本号：`package.json` 仍是 `0.6.6`，这样上游的 `verify-version-sync` 才能通过。区分方式是 tgz 文件名的 `-result-only` 后缀；`dsh plugin add` 安装本地文件会替换同版本依赖。
 
-同名构建也发布在 npm：`@garinz/ds-harness-remote`（当前 `0.6.5-resultonly.1`）。其他主机可以不传本地 tgz：
+同名构建也发布在 npm：`@garinz/ds-harness-remote`（当前 `0.6.6-resultonly.2`，已装到临时 profile 验证过）。其他主机可以不传本地 tgz：
 
 ```bash
-dsh plugin --profile desktop add @garinz/ds-harness-remote@0.6.5-resultonly.1
+dsh plugin --profile desktop add @garinz/ds-harness-remote@0.6.6-resultonly.2
 ```
 
 装完同样用 `reload.sh` 热加载（脚本会找到 scoped 包路径）。
@@ -71,7 +71,7 @@ dsh plugin --profile desktop add @garinz/ds-harness-remote@0.6.5-resultonly.1
 ```bash
 runtime/host-remote/reload.sh desktop
 # 或显式指定 tgz：
-runtime/host-remote/reload.sh desktop ./runtime/host-remote/dist/ds-harness-remote-0.6.5-result-only.tgz
+runtime/host-remote/reload.sh desktop ./runtime/host-remote/dist/ds-harness-remote-0.6.6-result-only.tgz
 ```
 
 它做三件事：

@@ -6,11 +6,11 @@
 
 | 项 | 位置 |
 |---|---|
-| 主机插件补丁 | `runtime/host-remote/`（新增；上游 `ds-harness-remote` 0.6.5 的补丁集 + 构建/安装脚本） |
+| 主机插件补丁 | `runtime/host-remote/`（新增；上游 `ds-harness-remote` 0.6.6 的补丁集 + 构建/安装脚本） |
 | 协议 | capability `remote.result.only.v1`、请求字段 `resultOnly`、省略记录 `log/omitted` |
 | 客户端 | `packages/dsh_client/lib/src/session_api.dart`、`models.dart`、`transcript.dart` |
 | App | `app/lib/state/chat_state.dart`、`app/lib/ui/remote/remote_screen.dart`、l10n |
-| 状态 | P0–P3 已实现；桌面检查与 Android 真机主流程、最终图片、审批与提问已验证；长时温度/电流、生产签名包待补；P4（按需看过程、上游 PR）待做 |
+| 状态 | P0–P3 已实现；补丁基线 0.6.6（桌面构建/测试通过），Android 真机主流程、最终图片、审批与提问在 0.6.5 上验证；长时温度/电流、生产签名包待补；P4（按需看过程、上游 PR）待做 |
 
 ## 1. 目标（重新描述）
 
@@ -293,20 +293,20 @@
 
 ```text
 runtime/host-remote/
-  upstream.json            # name/version(0.6.5)/gitHead/source sha256、pnpm、许可证说明
+  upstream.json            # name/version(0.6.6)/gitHead/source sha256、pnpm、许可证说明
   patches/0001-result-only.patch
   build.sh                 # 取 GitHub 源码归档 → 校验 → 打补丁 → tsc + vitest → npm pack
   install.sh               # dsh plugin --profile <p> add <打包出的 tgz>
   reload.sh                # 安装后触发 HMR 重组合；HMR 关闭时仍要重启
 ```
 
-`build.sh` 从 `upstream.json` 的 GitHub 源码归档拉取（**不是 npm tarball**：npm 包不含 `src/` 与 `tests/`），校验 SHA-256，应用补丁，跑 `pnpm check` 与串行 vitest，产出 `ds-harness-remote-0.6.5-result-only.tgz`。`install.sh` 转发给 `dsh plugin add`（本质是 profile 里的 pnpm）：
+`build.sh` 从 `upstream.json` 的 GitHub 源码归档拉取（**不是 npm tarball**：npm 包不含 `src/` 与 `tests/`），校验 SHA-256，应用补丁，跑 `pnpm check` 与串行 vitest，产出 `ds-harness-remote-0.6.6-result-only.tgz`。`install.sh` 转发给 `dsh plugin add`（本质是 profile 里的 pnpm）：
 
 ```bash
-dsh plugin --profile desktop add ./dist/ds-harness-remote-0.6.5-result-only.tgz
+dsh plugin --profile desktop add ./dist/ds-harness-remote-0.6.6-result-only.tgz
 ```
 
-包版本号保持 `0.6.5`（上游 `verify-version-sync` 会检查），用产物文件名的 `-result-only` 后缀区分；安装本地 tgz 会替换同版本依赖。
+包版本号保持 `0.6.6`（上游 `verify-version-sync` 会检查），用产物文件名的 `-result-only` 后缀区分；安装本地 tgz 会替换同版本依赖。
 
 启用了 HMR 的主机不必重启：`reload.sh` 安装后 `touch` 已装包的 `dist/index.js`，再改写 profile 的 `cordis.patch.yml` 触发重组合。桌面 host 实测插件先 `host runtime stopped` 再重新 ready，PID 不变。只跑 `dsh plugin add` 或只 `touch` patch 都不会触发；HMR 关闭时仍需重启主机。
 
@@ -349,7 +349,7 @@ dsh plugin --profile desktop add ./dist/ds-harness-remote-0.6.5-result-only.tgz
 
 ### 5.4 文档
 
-`docs/architecture.md` §5.1 已补「只看结果」一句；本文件作为设计依据。发布说明里需写清「主机需安装本仓库产出的 `0.6.5-result-only` 补丁包，手机不能替你升级」。`docs/changelog.md` 只记录已发布版本，本次改动待发版时补。
+`docs/architecture.md` §5.1 已补「只看结果」一句；本文件作为设计依据。发布说明里需写清「主机需安装本仓库产出的 `0.6.6-result-only` 补丁包，手机不能替你升级」。`docs/changelog.md` 只记录已发布版本，本次改动待发版时补。
 
 ## 6. 分期
 
@@ -377,7 +377,7 @@ dsh plugin --profile desktop add ./dist/ds-harness-remote-0.6.5-result-only.tgz
 - 500 条消息窗口的保守样本：stream 37.9% + 工具 12.4%，只删 stream 并截断工具是 -40.8%；
 - 冷启动快照字节同比例下降（真机尚未复核）。
 
-真机（P3，2026-11-18，Android vivo V2303A + 补丁主机 0.6.5）：
+真机（P3，2026-11-18，Android vivo V2303A + 补丁主机 0.6.5；0.6.6 只做了桌面构建/测试，未重跑真机）：
 
 - 环境：独立 `DSH_HOME` 里装 `runtime/host-remote/build.sh` 产物，手机 debug 包（最终 1.1.0+11181457）扫码配对，P2P/TURN 自动切换；桌面主机与本会话未重启。
 - 结果模式：20 次 `bash`（每次 `date; sleep 2`，约 77 s）和 6 次/4 次短任务都只显示「已省略 N 条过程记录」与最终答复，没有工具卡片，没有逐 token 流；turn 正常结束，未进 resync 循环。真机上原先把 `llm/retry` 当保留记录，一次 20 次调用被切成十几行；改成丢弃瞬时重试、并由客户端合并连续省略行后，同一个回合只剩 3 行（4 / 23 / 171 条），4 次调用只剩 1 行（37 条）。
@@ -394,7 +394,7 @@ dsh plugin --profile desktop add ./dist/ds-harness-remote-0.6.5-result-only.tgz
 
 ## 8. 风险与取舍
 
-- **上游演进**：补丁钉在 0.6.5 的 gitHead；上游改 `pump`/`call` 结构时补丁要重做。缓解：补丁尽量小、只碰两个现有文件 + 新增一个文件；`upstream.json` 记录源码归档 SHA-256；上游 PR 合入后删补丁。
+- **上游演进**：补丁钉在 0.6.6 的 gitHead；上游改 `pump`/`call` 结构时补丁要重做。缓解：补丁尽量小、只碰两个现有文件 + 新增一个文件；`upstream.json` 记录源码归档 SHA-256；上游 PR 合入后删补丁。
 - **能力探测失败**：主机没装补丁时开关不可用；UI 必须说清「需要主机本地升级」，不能让用户以为 App 坏了。
 - **中间文字进度**：结果模式保留每次 step 的文本（几 KB）。如果你连这个也不想看，再加「只留最后一条」的严格档（见 §9）。
 - **未知记录类型**：默认保留，可能漏掉未来新增的高频类型；版本钉死 + 回放脚本能提前发现。
@@ -407,4 +407,4 @@ dsh plugin --profile desktop add ./dist/ds-harness-remote-0.6.5-result-only.tgz
 2. 是否要「只留最后一条答复」的严格档：默认不做；文字进度很小，保留更像正常对话。
 3. 省略行是否显示工具名：建议只显示次数与字节，点开详情再看；避免又变成日志。
 4. 上游 PR 的形态：能力 + 请求字段 + 记录类型三件套一次提，还是先提能力与过滤、按需详情放后续。
-5. 主机插件版本号：已定保持 `0.6.5`，产物名加 `-result-only` 后缀；不升 semver，避免和上游 `verify-version-sync` 冲突。
+5. 主机插件版本号：已定保持 `0.6.6`，产物名加 `-result-only` 后缀；不升 semver，避免和上游 `verify-version-sync` 冲突。

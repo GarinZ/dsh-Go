@@ -65,7 +65,7 @@ cd "$WORK/packages/plugin"
 echo "==> type-check"
 npx -y "pnpm@$PNPM" check
 # 上游 acp-workspace-controls 的 hermes 用例在并行跑全量时是已知 flake；
-# 串行跑既稳定，又覆盖全部 90 个测试文件。
+# 串行跑既稳定，又覆盖插件全部测试文件。
 echo "==> plugin tests (serial)"
 npx -y "pnpm@$PNPM" exec vitest run --no-file-parallelism
 
