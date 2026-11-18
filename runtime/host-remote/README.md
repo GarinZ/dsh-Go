@@ -54,6 +54,14 @@ runtime/host-remote/install.sh desktop ./runtime/host-remote/dist/ds-harness-rem
 
 补丁不修改包版本号：`package.json` 仍是 `0.6.5`，这样上游的 `verify-version-sync` 才能通过。区分方式是 tgz 文件名的 `-result-only` 后缀；`dsh plugin add` 安装本地文件会替换同版本依赖。
 
+同名构建也发布在 npm：`@garinz/ds-harness-remote`（当前 `0.6.5-resultonly.1`）。其他主机可以不传本地 tgz：
+
+```bash
+dsh plugin --profile desktop add @garinz/ds-harness-remote@0.6.5-resultonly.1
+```
+
+装完同样用 `reload.sh` 热加载（脚本会找到 scoped 包路径）。
+
 安装后让主机加载新代码：启用了 HMR 的主机可以用 `reload.sh` 原地重载（见下节），否则**重启主机进程**（`dsh web` 或桌面 App），再让 DSH Go 重连。新的 `harness.transport.describe` 应带 `remote.result.only.v1`；主机没装补丁时，App 端的开关应不可用。
 
 ### 不重启热加载
