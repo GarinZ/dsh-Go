@@ -16754,6 +16754,23 @@ class L10nZh extends L10n {
   String get searchKwRemoteCompactHistory => '精简 简洁 历史 工具 传输 流量 远程 compact slim lite';
 
   @override
+  String get remoteResultOnly => '只看结果';
+
+  @override
+  String get remoteResultOnlyHint => '支持的远程主机只同步状态和最终答复，工具调用、思考过程折叠成一行；审批和错误照常收到。旧主机仍传完整过程。';
+
+  @override
+  String get remoteResultOnlyUnsupported => '当前主机不支持只看结果。请在电脑上更新 DSH Remote 插件后再连接。';
+
+  @override
+  String remoteOmittedProcess(int count) {
+    return '已省略 $count 条过程记录';
+  }
+
+  @override
+  String get searchKwRemoteResultOnly => '只看 结果 精简 省略 过程 思考 工具 流量 省电 远程 result only';
+
+  @override
   String get remotePairEntry => '扫码配对电脑';
 
   @override

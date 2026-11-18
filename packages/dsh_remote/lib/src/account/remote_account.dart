@@ -1149,6 +1149,11 @@ class RemoteAccount {
   /// The client of the active connection, if any.
   DshClient? get activeClient => _active?.client;
 
+  /// Capabilities of the active Host, from `harness.transport.describe`.
+  /// Empty before the first session opens; replaces the previous list on
+  /// every (re)connect.
+  List<String> get hostCapabilities => _active?.carrier.capabilities ?? const [];
+
   /// Connects to [host] with end-to-end Noise encryption, directly
   /// ([peerConnector]) or through the Server Relay, and returns a ready
   /// [DshClient] (first `$events` generation received). The client

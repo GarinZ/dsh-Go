@@ -1457,6 +1457,19 @@ sealed class SessionLogEvent extends DshEvent {
           data,
           todos: asListOrEmpty(data['todos']).map(TodoItem.fromJson).toList(growable: false),
         );
+      case 'log/omitted':
+        return SessionOmittedEvent(
+          seq,
+          time,
+          data,
+          fromSeq: asInt(data['fromSeq']) ?? seq,
+          count: asInt(data['count']) ?? 0,
+          bytes: asInt(data['bytes']) ?? 0,
+          kinds: asStringList(data['kinds']),
+          tools: asStringList(data['tools']),
+          turn: asInt(data['turn']),
+          step: asInt(data['step']),
+        );
       default:
         return UnknownEvent(seq, time, type, data, rawData: rawData);
     }
@@ -1754,6 +1767,34 @@ final class TodoWriteEvent extends SessionLogEvent {
   const TodoWriteEvent(int seq, DateTime time, Map<String, Object?> data, {required this.todos})
     : super(seq, time, 'todo/write', data);
   final List<TodoItem> todos;
+}
+
+/// A run of process records the Remote host omitted in result-only mode.
+///
+/// `seq` is the last omitted record; `fromSeq..seq` is the gap it replaces.
+/// The host emits it immediately before the next kept record, so seq stays
+/// contiguous.
+final class SessionOmittedEvent extends SessionLogEvent {
+  const SessionOmittedEvent(
+    int seq,
+    DateTime time,
+    Map<String, Object?> data, {
+    required this.fromSeq,
+    required this.count,
+    required this.bytes,
+    this.kinds = const [],
+    this.tools = const [],
+    this.turn,
+    this.step,
+  }) : super(seq, time, 'log/omitted', data);
+
+  final int fromSeq;
+  final int count;
+  final int bytes;
+  final List<String> kinds;
+  final List<String> tools;
+  final int? turn;
+  final int? step;
 }
 
 /// Any durable event this client does not model (`system/message`,

@@ -340,6 +340,9 @@ UI 输入 ─> ChatController.send() ─> DshClient.prompt(sessionId, text)
 - 发送结果未知（连接中断）：同一内容重发复用 requestId，由 Host 去重。
 - `watch()` 保证：每世代先快照；durable 事件 seq 严格连续；assistant revision 跳跃强制重同步；
   连续 6 次瞬时失败结束；401/403 等下一次登录。
+- 远程「只看结果」（`remote.result.only.v1`）：follow/page 请求带 `resultOnly`，主机把成串的过程记录
+  合并成一条 `log/omitted`（seq = 最后一条被省略记录），客户端删掉该区间原文、只显示一行；审批、
+  结束与最终文本照常。本机与 SSH 不走这条路。
 
 ### 5.2 RPC 与 mux
 

@@ -203,4 +203,143 @@ void main() {
       expect(t.inbox.map((q) => q.id), ['q2']);
     });
   });
+
+  test('omitted marker replaces the process run it stands for', () {
+    final t = ChatTranscript();
+    t.apply(
+      SessionLogEvent.fromJson({
+        'seq': 1,
+        'time': 1,
+        'type': 'user/message',
+        'data': {
+          'content': [
+            {'type': 'text', 'text': 'run the tests'},
+          ],
+          'source': {'kind': 'user'},
+          'role': 'user',
+          'id': 'u1',
+        },
+      }),
+    );
+    t.apply(
+      SessionLogEvent.fromJson({
+        'seq': 2,
+        'time': 2,
+        'type': 'tool/call',
+        'data': {'turn': 1, 'step': 1, 'callId': 'c1', 'name': 'bash', 'arguments': '{}'},
+      }),
+    );
+    expect(t.items.whereType<ToolChatItem>(), hasLength(1));
+
+    t.apply(
+      SessionLogEvent.fromJson({
+        'seq': 5,
+        'time': 3,
+        'type': 'log/omitted',
+        'data': {
+          'fromSeq': 2,
+          'count': 4,
+          'bytes': 2048,
+          'kinds': ['tool/call'],
+          'tools': ['bash'],
+        },
+      }),
+    );
+    expect(t.items.whereType<ToolChatItem>(), isEmpty);
+    final omitted = t.items.whereType<OmittedChatItem>().single;
+    expect(omitted.fromSeq, 2);
+    expect(omitted.count, 4);
+    expect(omitted.bytes, 2048);
+    expect(omitted.tools, ['bash']);
+
+    t.apply(
+      SessionLogEvent.fromJson({
+        'seq': 6,
+        'time': 4,
+        'type': 'assistant/message',
+        'data': {
+          'turn': 1,
+          'step': 1,
+          'message': {
+            'role': 'assistant',
+            'content': [
+              {'type': 'text', 'text': 'tests pass'},
+            ],
+          },
+        },
+      }),
+    );
+    expect(t.items.map((item) => item.runtimeType), [UserChatItem, OmittedChatItem, AssistantChatItem]);
+    expect(t.items.whereType<AssistantChatItem>().single.text, 'tests pass');
+  });
+
+  test('result-only markers prune full records an earlier load kept', () {
+    SessionLogEvent event(int seq, String type, Map<String, Object?> data) =>
+        SessionLogEvent.fromJson({'seq': seq, 'time': seq, 'type': type, 'data': data});
+    final base = follow('follow_reply_ok.jsonl').first as SessionSnapshotEvent;
+    final user = event(1, 'user/message', {
+      'content': [
+        {'type': 'text', 'text': 'run the tests'},
+      ],
+      'source': {'kind': 'user'},
+      'role': 'user',
+      'id': 'u1',
+    });
+    final call = event(2, 'tool/call', {'turn': 1, 'step': 1, 'callId': 'c1', 'name': 'bash', 'arguments': '{}'});
+    final result = event(3, 'tool/result', {
+      'turn': 1,
+      'step': 1,
+      'message': {
+        'role': 'tool',
+        'toolCallId': 'c1',
+        'content': [
+          {'type': 'text', 'text': 'hi\n'},
+        ],
+        'isError': false,
+        'id': 'r1',
+      },
+    });
+    final marker = event(3, 'log/omitted', {
+      'fromSeq': 2,
+      'count': 2,
+      'bytes': 1024,
+      'kinds': ['tool/call', 'tool/result'],
+    });
+    final assistant = event(4, 'assistant/message', {
+      'turn': 1,
+      'step': 1,
+      'message': {
+        'role': 'assistant',
+        'content': [
+          {'type': 'text', 'text': 'tests pass'},
+        ],
+      },
+    });
+
+    final t = ChatTranscript()..apply(base.withEvents([user, call, result]));
+    expect(t.items.whereType<ToolChatItem>(), hasLength(1));
+
+    // A resync snapshot keeps the older log, so its marker must prune it.
+    t.apply(
+      SessionSnapshotEvent(
+        sessionId: base.sessionId,
+        header: base.header,
+        cursor: 4,
+        events: [marker, assistant],
+        hasMore: false,
+        projections: base.projections,
+        assistantRevision: base.assistantRevision,
+        isResync: true,
+      ),
+    );
+    expect(t.items.whereType<ToolChatItem>(), isEmpty);
+    expect(t.items.whereType<OmittedChatItem>().single.fromSeq, 2);
+    expect(t.items.map((item) => item.runtimeType), [UserChatItem, OmittedChatItem, AssistantChatItem]);
+
+    // An older result-only page replaces the full records it now omits.
+    final older = ChatTranscript()..apply(base.withEvents([user, call, result]));
+    older.prependHistory(HistoryPage([user, marker], false));
+    expect(older.items.whereType<ToolChatItem>(), isEmpty);
+    expect(older.items.whereType<OmittedChatItem>(), hasLength(1));
+  });
 }

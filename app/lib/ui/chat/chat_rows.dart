@@ -87,6 +87,20 @@ final class NoticeRowData extends ChatRow {
   bool get stable => true;
 }
 
+/// 结果模式省略掉的一段过程。主机仍保留完整记录,这里只占一行。
+final class OmittedRow extends ChatRow {
+  OmittedRow(this.item) : count = item.count, bytes = item.bytes;
+  const OmittedRow._(this.item, this.count, this.bytes);
+  final OmittedChatItem item;
+  final int count;
+  final int bytes;
+  OmittedRow merge(OmittedChatItem next) => OmittedRow._(item, count + next.count, bytes + next.bytes);
+  @override
+  String get key => item.key;
+  @override
+  bool get stable => true;
+}
+
 /// 没挂在任何可见工具行上的审批(asker 没给 callId,或工具行还没出现)。
 final class ApprovalRow extends ChatRow {
   const ApprovalRow(this.request);
@@ -288,7 +302,10 @@ List<ChatRow> deriveRows({
   /// 收起当前片的过程,保留显式正式答案;没有标记时用 [reply] 回退。
   /// 返回最后一条外露回复的新下标(全收进去时 null)。[cut]:这一片结束在哪条插话。
   int? fold(TurnTrace trace, int? reply, {int? cut}) {
-    final start = pieceStart!;
+    final start = pieceStart;
+    // Nothing was emitted for this piece (a marker-only prologue or a turn that
+    // ended before its first row): there is no process run to fold.
+    if (start == null || start >= pieceEnd) return reply;
     // Prefer explicit final answers: a late subagent result can produce another
     // answer in the same turn. Older hosts/models keep the positional fallback.
     final hasFinalAnswer = rows
@@ -426,6 +443,7 @@ List<ChatRow> deriveRows({
     AssistantChatItem(:final seq) => seq,
     ToolChatItem(:final seq) => seq,
     NoticeChatItem(:final seq) => seq,
+    OmittedChatItem(:final seq) => seq,
   };
 
   for (var i = 0; i < items.length; i++) {
@@ -466,6 +484,18 @@ List<ChatRow> deriveRows({
         }
         pieceStart ??= rows.length;
         rows.add(NoticeRowData(item));
+      case OmittedChatItem():
+        flushTools();
+        final last = rows.isEmpty ? null : rows.last;
+        // Merge only inside one piece: a marker at the start of a new piece must
+        // not replace the previous piece's row and leave pieceStart past it.
+        if (pieceStart != null && last is OmittedRow) {
+          rows[rows.length - 1] = last.merge(item);
+        } else {
+          pieceStart = rows.length;
+          rows.add(OmittedRow(item));
+        }
+        pieceEnd = rows.length;
     }
     if (item is AssistantChatItem || item is NoticeChatItem) {
       pieceEnd = rows.length;

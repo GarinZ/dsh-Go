@@ -1,3 +1,4 @@
+import 'package:dsh_app/state/artifacts.dart';
 import 'package:dsh_app/state/workspace_state.dart';
 import 'package:dsh_app/ui/chat/artifact_preview.dart';
 import 'package:dsh_app/ui/chat/render/markdown_body.dart';
@@ -231,6 +232,29 @@ void main() {
     final route = observer.pushed.last as MaterialPageRoute<void>;
     final page = route.builder(tester.element(find.byType(MarkdownBody))) as ArtifactPreviewPage;
     expect(page.artifact.path, '/root/work/notes.md');
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('previewed Markdown anchors relative files at the workspace root', (tester) async {
+    final workspace = MemoryWorkspace(files: {'docs/hardware/doc.md': '# Doc\n\n![hero](../../hardware/hero.png)\n'});
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          workspaceSourceProvider.overrideWith((ref, id) => workspace),
+          workspaceRootProvider.overrideWith((ref, id) => '/root/work'),
+        ],
+        child: MaterialApp(
+          theme: buildLightTheme(),
+          home: ArtifactPreviewPage(
+            sessionId: 's1',
+            artifact: const Artifact(path: 'docs/hardware/doc.md', origin: ArtifactOrigin.delivered, turn: 1),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final scope = tester.widget<MarkdownImageScope>(find.byType(MarkdownImageScope));
+    expect(scope.baseDir, '/root/work/docs/hardware');
     await tester.pumpWidget(const SizedBox.shrink());
   });
 

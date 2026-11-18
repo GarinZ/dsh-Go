@@ -315,6 +315,42 @@ final remoteCompactHistoryProvider = NotifierProvider<RemoteCompactHistoryContro
   RemoteCompactHistoryController.new,
 );
 
+/// Requests live follows and history pages that omit process records
+/// (tool calls, reasoning, steps) on supporting Remote Hosts. Request-scoped:
+/// switching re-listens, so the next snapshot is built in the chosen mode.
+class RemoteResultOnlyController extends Notifier<bool> {
+  static const prefsKey = 'remote_result_only';
+  late Future<void> _loaded;
+
+  @override
+  bool build() {
+    _loaded = _load();
+    return false;
+  }
+
+  Future<void> get ready => _loaded;
+
+  Future<void> _load() async {
+    try {
+      final stored = (await SharedPreferences.getInstance()).getBool(prefsKey);
+      if (stored != null && ref.mounted) state = stored;
+    } catch (_) {}
+  }
+
+  Future<void> set(bool value) async {
+    await _loaded;
+    if (!ref.mounted) return;
+    state = value;
+    try {
+      await (await SharedPreferences.getInstance()).setBool(prefsKey, value);
+    } catch (_) {}
+  }
+}
+
+final remoteResultOnlyProvider = NotifierProvider<RemoteResultOnlyController, bool>(
+  RemoteResultOnlyController.new,
+);
+
 /// Which host the chat, session list and new chats use. Persisted.
 class ActiveHostController extends Notifier<HostRef> {
   static const prefsKey = 'active_host';

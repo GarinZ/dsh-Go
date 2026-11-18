@@ -263,6 +263,32 @@ void main() {
     });
   });
 
+  test('result-only omission marker parses', () {
+    final event = SessionLogEvent.fromJson({
+      'seq': 9,
+      'time': 1700000000000,
+      'type': 'log/omitted',
+      'data': {
+        'fromSeq': 5,
+        'count': 5,
+        'bytes': 4096,
+        'kinds': ['tool/call', 'tool/result'],
+        'tools': ['bash'],
+        'turn': 2,
+        'step': 3,
+      },
+    });
+    final omitted = event as SessionOmittedEvent;
+    expect(omitted.seq, 9);
+    expect(omitted.fromSeq, 5);
+    expect(omitted.count, 5);
+    expect(omitted.bytes, 4096);
+    expect(omitted.kinds, ['tool/call', 'tool/result']);
+    expect(omitted.tools, ['bash']);
+    expect(omitted.turn, 2);
+    expect(omitted.step, 3);
+  });
+
   test('DshLaunchUrl parses the dsh web line', () {
     final launch = DshLaunchUrl.tryParse('dsh web: http://127.0.0.1:3080/?token=abc_DEF-123')!;
     expect(launch.baseUri.toString(), 'http://127.0.0.1:3080');

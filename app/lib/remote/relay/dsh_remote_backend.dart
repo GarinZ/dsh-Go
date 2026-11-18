@@ -21,7 +21,8 @@ import 'network_route.dart';
 ///
 /// [direct] (直连优先) lets connections try LAN / P2P / TURN over
 /// [peerConnector] (flutter_webrtc) before the Server's relay.
-class DshRemoteRelayBackend implements RelayBackend, RelayNetworkBackend, RelayPairingBackend {
+class DshRemoteRelayBackend
+    implements RelayBackend, RelayNetworkBackend, RelayPairingBackend, ResultOnlyRelayBackend {
   DshRemoteRelayBackend({
     required SecretStore secrets,
     Object? serverUrl,
@@ -72,6 +73,13 @@ class DshRemoteRelayBackend implements RelayBackend, RelayNetworkBackend, RelayP
 
   /// Applies to the next client, without disturbing live streams or its reconnects.
   set compactHistory(bool enabled) => account.compactHistory = enabled;
+
+  /// Whether [client]'s Host can trim live streams to results
+  /// (`remote.result.only.v1`). Request-scoped: no configure call.
+  @override
+  bool supportsResultOnly(DshClient client) =>
+      identical(client, account.activeClient) &&
+      account.hostCapabilities.contains('remote.result.only.v1');
 
   /// Reconnects back off to a minute: a sleeping computer isn't polled every
   /// few seconds (network changes and 重试 still connect at once).

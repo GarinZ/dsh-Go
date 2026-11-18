@@ -62,6 +62,7 @@ class TurnWindow {
 class WatchOptions {
   const WatchOptions({
     this.assistantStream = true,
+    this.resultOnly = false,
     this.activate = false,
     this.activationAllowed,
     this.onActivationChecked,
@@ -89,6 +90,14 @@ class WatchOptions {
 
   /// Receive live token deltas ([AssistantStreamEvent]s).
   final bool assistantStream;
+
+  /// Ask a capable Remote host to omit process records (tool calls/results,
+  /// steps, subagent/job events, stored stream chunks) and keep only turn
+  /// lifecycle, user/assistant text, approvals and errors. The host replaces
+  /// each dropped run with a [SessionOmittedEvent] marker; [assistantStream]
+  /// is implied off. Hosts without `remote.result.only.v1` ignore the request
+  /// and send the full stream.
+  final bool resultOnly;
 
   /// Initial window; the official web client uses 50 messages / 2 turns.
   final TurnWindow? turnWindow;
@@ -636,6 +645,7 @@ class DshClient {
     int? beforeSeq,
     int? maxMessages,
     TurnWindow? turnWindow,
+    bool resultOnly = false,
   }) async {
     final value = asMapOrEmpty(
       await rpc.call('session/page', {
@@ -645,6 +655,7 @@ class DshClient {
           'beforeSeq': ?beforeSeq,
           'maxMessages': ?maxMessages,
           if (turnWindow != null) 'turnWindow': turnWindow.toJson(),
+          if (resultOnly) 'resultOnly': true,
         },
       }),
     );
@@ -1107,7 +1118,8 @@ class _SessionWatch {
 
   Map<String, Object?> _followRequest() => {
     'address': client.sessionAddressOf(sessionId),
-    if (options.assistantStream) 'assistantStream': true,
+    if (options.assistantStream && !options.resultOnly) 'assistantStream': true,
+    if (options.resultOnly) 'resultOnly': true,
     if (options.maxMessages != null) 'maxMessages': options.maxMessages,
     if (options.turnWindow != null) 'turnWindow': options.turnWindow!.toJson(),
   };
@@ -1266,7 +1278,9 @@ class _SessionWatch {
     final epoch = _epoch!;
     _assistantRevision = snapshot.assistantRevision;
     var events = snapshot.events;
-    if (_lastSeq >= 0 && snapshot.cursor > _lastSeq) {
+    // Result-only pages already carry omission markers and cannot be used to
+    // reconstruct contiguous raw seqs; a snapshot is authoritative on its own.
+    if (!options.resultOnly && _lastSeq >= 0 && snapshot.cursor > _lastSeq) {
       final firstSeq = events.isEmpty ? snapshot.cursor + 1 : events.first.seq;
       if (firstSeq > _lastSeq + 1) {
         final filled = await _fill(from: _lastSeq + 1, before: firstSeq, through: snapshot.cursor);
@@ -1294,10 +1308,23 @@ class _SessionWatch {
     switch (event) {
       case SessionLogEvent():
         if (event.seq <= _lastSeq) return;
+        if (event is SessionOmittedEvent) {
+          // A marker stands for the raw records [fromSeq, seq] the Host dropped;
+          // its seq is the last omitted record, not the next sequence. Accept it
+          // as covering that range instead of treating the raw gap as a hole.
+          if (event.fromSeq > _lastSeq + 1) {
+            throw _Resync('resync after gap before seq ${event.fromSeq}');
+          }
+          _lastSeq = event.seq;
+          _emit(event);
+          return;
+        }
         if (event.seq > _lastSeq + 1) {
           // Revalidate the complete inbox/running baseline, not only the
           // missing log records. The next snapshot repairs durable history.
-          if (options.includeSyncEvents) throw _Resync('resync after gap before seq ${event.seq}');
+          if (options.resultOnly || options.includeSyncEvents) {
+            throw _Resync('resync after gap before seq ${event.seq}');
+          }
           final epoch = _epoch!;
           final filled = await _fill(from: _lastSeq + 1, before: event.seq, through: event.seq - 1);
           _checkHistoryOwner(epoch);

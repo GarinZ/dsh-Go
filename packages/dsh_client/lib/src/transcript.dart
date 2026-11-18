@@ -156,6 +156,36 @@ final class NoticeChatItem extends ChatItem {
   String get key => 'n$seq';
 }
 
+/// A run of process records the Remote host omitted in result-only mode.
+///
+/// Rendered as one collapsed line ("N process records omitted"). The exact
+/// records are not in this transcript; they remain on the host.
+final class OmittedChatItem extends ChatItem {
+  const OmittedChatItem({
+    required this.seq,
+    required this.fromSeq,
+    required this.count,
+    required this.bytes,
+    this.kinds = const [],
+    this.tools = const [],
+    this.turn,
+    this.step,
+  });
+
+  /// Seq of the last omitted record (the marker's own seq).
+  final int seq;
+  final int fromSeq;
+  final int count;
+  final int bytes;
+  final List<String> kinds;
+  final List<String> tools;
+  final int? turn;
+  final int? step;
+
+  @override
+  String get key => 'o$seq';
+}
+
 class ChatTranscript {
   ChatTranscript({this.showSyntheticUserMessages = false});
 
@@ -320,6 +350,7 @@ class ChatTranscript {
         _drafts.clear();
         _runningOverride = null;
         for (final e in event.events) {
+          if (e is SessionOmittedEvent) _pruneOmitted(e);
           _log[e.seq] = e;
         }
         _recomputeTitle();
@@ -339,6 +370,9 @@ class ChatTranscript {
         final previousLast = _log.lastKey();
         final appended = previousLast == null || event.seq > previousLast;
         final fresh = event.seq > cursor;
+        // A result-only marker stands for fromSeq..seq; drop any raw records in
+        // that range that an earlier full stream or history page loaded.
+        final pruned = event is SessionOmittedEvent && _pruneOmitted(event);
         _log[event.seq] = event;
         if (fresh) cursor = event.seq;
         switch (event) {
@@ -356,7 +390,7 @@ class ChatTranscript {
           default:
             break;
         }
-        _logChanged(appended: appended ? event : null);
+        _logChanged(appended: appended && !pruned ? event : null);
         return true;
       case AssistantStreamStarted():
         _drafts[event.attemptId] = _Draft(event.attemptId, event.turn, event.step, event.startedAfterSeq);
@@ -406,6 +440,18 @@ class ChatTranscript {
     }
   }
 
+  /// Drops raw records a result-only marker stands for, including ones an
+  /// earlier full stream or history page loaded. Returns whether any went.
+  bool _pruneOmitted(SessionOmittedEvent event) {
+    var pruned = false;
+    _log.removeWhere((seq, _) {
+      final drop = seq >= event.fromSeq && seq <= event.seq;
+      if (drop) pruned = true;
+      return drop;
+    });
+    return pruned;
+  }
+
   void _spliceInbox(InboxSplicedEvent event) {
     final list = [...?_inbox[event.target]];
     final start = event.start.clamp(0, list.length);
@@ -417,6 +463,7 @@ class ChatTranscript {
   /// Merges an older page from `DshClient.history(beforeSeq: oldestSeq)`.
   void prependHistory(HistoryPage page) {
     for (final e in page.events) {
+      if (e is SessionOmittedEvent) _pruneOmitted(e);
       _log[e.seq] = e;
     }
     hasMoreHistory = page.hasMore;
@@ -481,6 +528,7 @@ class _DurableFold {
   static bool folds(SessionLogEvent event, bool showSyntheticUserMessages) => switch (event) {
     UserMessageEvent() => event.isHumanPrompt || showSyntheticUserMessages,
     AssistantMessageEvent() ||
+    SessionOmittedEvent() ||
     ToolCallEvent() ||
     ToolResultEvent() ||
     ApprovalAskedEvent(callId: _?) ||
@@ -535,6 +583,19 @@ class _DurableFold {
         for (final call in message.toolCalls) {
           tool(call.id, call.name, call.arguments, event.seq);
         }
+      case SessionOmittedEvent():
+        items.add(
+          OmittedChatItem(
+            seq: event.seq,
+            fromSeq: event.fromSeq,
+            count: event.count,
+            bytes: event.bytes,
+            kinds: event.kinds,
+            tools: event.tools,
+            turn: event.turn,
+            step: event.step,
+          ),
+        );
       case ToolCallEvent():
         tool(event.callId, event.name, event.arguments, event.seq).dispatched = true;
       case ToolResultEvent():

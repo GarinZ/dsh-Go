@@ -1168,6 +1168,13 @@ abstract final class Spots {
     keywords: (l) => l.searchKwRemoteCompactHistory,
   );
 
+  static final remoteResultOnly = SettingSpot(
+    'remote-result-only',
+    page: SettingsPageId.remote,
+    title: (l) => l.remoteResultOnly,
+    keywords: (l) => l.searchKwRemoteResultOnly,
+  );
+
   // 引擎参数 and its pages (drawn from the engine's schema).
   static final subagentDepth = SettingSpot(
     'subagent-depth',
@@ -1295,6 +1302,7 @@ final _rows = <SettingSpot>[
   Spots.addSshHost,
   Spots.remoteAutoConnect,
   Spots.remoteCompactHistory,
+  Spots.remoteResultOnly,
   Spots.subagentDepth,
   Spots.parallelCalls,
   Spots.commandTimeout,

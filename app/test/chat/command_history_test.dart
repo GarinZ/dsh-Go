@@ -57,6 +57,7 @@ class _Client extends DshClient {
     required int throughSeq,
     int? beforeSeq,
     int? maxMessages,
+    bool resultOnly = false,
     TurnWindow? turnWindow,
   }) async {
     expect(beforeSeq, 2);

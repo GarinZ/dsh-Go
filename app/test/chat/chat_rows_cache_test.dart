@@ -36,6 +36,7 @@ Object shape(ChatRow row) => switch (row) {
   ToolCallRow(:final item, :final card) => (row.key, toolShape(item), card),
   ToolGroupRow(:final tools, :final live) => [row.key, tools.map(toolShape).toList(), live],
   NoticeRowData(:final item) => (row.key, item),
+  OmittedRow(:final item, :final count) => (row.key, item, count),
   ApprovalRow(:final request) => (row.key, request),
   QuestionRow(:final request) => (row.key, request),
   ChangeCardRow(:final files) => [

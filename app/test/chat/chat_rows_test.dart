@@ -41,6 +41,44 @@ void main() {
     expect(rows.skip(rows.length - 3).map((row) => row.runtimeType), [ApprovalRow, QuestionRow, PendingRow]);
   });
 
+  test('consecutive omission rows merge into one line', () {
+    final rows = deriveRows(
+      items: [
+        user(1, 'q'),
+        OmittedChatItem(seq: 3, fromSeq: 2, count: 9, bytes: 100),
+        OmittedChatItem(seq: 12, fromSeq: 4, count: 9, bytes: 200),
+        assistant(13, 'summary'),
+      ],
+    );
+    final omitted = rows.whereType<OmittedRow>().single;
+    expect(omitted.count, 18);
+    expect(omitted.bytes, 300);
+    expect(omitted.item.seq, 3);
+  });
+
+  test('omission marker at the start of a finished turn does not break folding', () {
+    final rows = deriveRows(
+      items: [
+        OmittedChatItem(seq: 2, fromSeq: 1, count: 1, bytes: 10),
+        user(3, 'q'),
+        assistant(4, 'answer', isFinalAnswer: true),
+      ],
+      turns: [
+        TurnTrace(
+          turn: 1,
+          startSeq: 3,
+          start: DateTime(2026),
+          spans: const [],
+          endSeq: 4,
+          end: DateTime(2026),
+          endReason: TurnEndReason('completed'),
+        ),
+      ],
+      foldTurns: true,
+    );
+    expect(rows.whereType<AssistantRow>().single.item.text, 'answer');
+  });
+
   test('three or more consecutive tool calls collapse into a group', () {
     final rows = deriveRows(
       items: [

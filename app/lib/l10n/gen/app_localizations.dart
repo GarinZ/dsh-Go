@@ -30734,6 +30734,36 @@ abstract class L10n {
   /// **'精简 简洁 历史 工具 传输 流量 远程 compact slim lite'**
   String get searchKwRemoteCompactHistory;
 
+  /// No description provided for @remoteResultOnly.
+  ///
+  /// In zh, this message translates to:
+  /// **'只看结果'**
+  String get remoteResultOnly;
+
+  /// No description provided for @remoteResultOnlyHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'支持的远程主机只同步状态和最终答复，工具调用、思考过程折叠成一行；审批和错误照常收到。旧主机仍传完整过程。'**
+  String get remoteResultOnlyHint;
+
+  /// No description provided for @remoteResultOnlyUnsupported.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前主机不支持只看结果。请在电脑上更新 DSH Remote 插件后再连接。'**
+  String get remoteResultOnlyUnsupported;
+
+  /// No description provided for @remoteOmittedProcess.
+  ///
+  /// In zh, this message translates to:
+  /// **'已省略 {count} 条过程记录'**
+  String remoteOmittedProcess(int count);
+
+  /// No description provided for @searchKwRemoteResultOnly.
+  ///
+  /// In zh, this message translates to:
+  /// **'只看 结果 精简 省略 过程 思考 工具 流量 省电 远程 result only'**
+  String get searchKwRemoteResultOnly;
+
   /// No description provided for @remotePairEntry.
   ///
   /// In zh, this message translates to:

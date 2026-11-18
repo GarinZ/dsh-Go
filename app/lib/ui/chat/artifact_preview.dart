@@ -1018,7 +1018,7 @@ class _MoreElsewhere extends StatelessWidget {
   return (fields: fields, raw: null, body: body);
 }
 
-class _MarkdownDocument extends StatelessWidget {
+class _MarkdownDocument extends ConsumerWidget {
   const _MarkdownDocument({required this.sessionId, required this.path, required this.text});
 
   final String sessionId;
@@ -1026,10 +1026,17 @@ class _MarkdownDocument extends StatelessWidget {
   final String text;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final front = splitFrontMatter(text);
     final theme = Theme.of(context);
     final dsh = DshColors.of(context);
+    final root = ref.watch(workspaceRootProvider(sessionId));
+    final folder = _folderOf(path);
+    final baseDir = folder == null
+        ? root
+        : folder.startsWith('/') || root == null
+        ? folder
+        : workspaceHostPath(root, folder);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1071,10 +1078,11 @@ class _MarkdownDocument extends StatelessWidget {
           )
         else if (front.raw case final raw?)
           CodeBlock(code: raw, language: 'yaml'),
-        // 文档里的相对图片路径从它自己的目录算起。
+        // 文档里的相对图片路径从它自己的目录算起；目录先落到绝对工作区
+        // 根上，否则 Host 解析到根外会拒绝（图片与链接都走这个 scope）。
         MarkdownImageScope(
           sessionId: sessionId,
-          baseDir: _folderOf(path),
+          baseDir: baseDir,
           child: MarkdownBody(text: front.body),
         ),
       ],

@@ -154,6 +154,8 @@ class _ProbeState extends State<_Probe> {
           _log('TOOL $name ${status.name}: ${resultText.trim().replaceAll('\n', ' | ')}');
         case NoticeChatItem(:final text):
           _log('NOTICE: $text');
+        case OmittedChatItem(:final count):
+          _log('OMITTED: $count process records');
       }
     }
   }

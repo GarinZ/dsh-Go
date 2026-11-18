@@ -568,6 +568,7 @@ class ChatController extends Notifier<ChatState> {
     // rebuild may reuse this Notifier for an identically named session there.
     // Reconnecting to the same Host keeps the existing conversation consent.
     final host = ref.watch(activeHostProvider);
+    final resultOnly = ref.watch(remoteResultOnlyProvider);
     if (_approvalHost != host) {
       // These requests belong to the previous Host, even if the new Host has
       // the same session id. A new watch replays its own mux's pending requests.
@@ -624,9 +625,12 @@ class ChatController extends Notifier<ChatState> {
     // Not connected is a screen state (the composer explains it), not an
     // error. What was loaded stays until a new snapshot replaces it.
     if (client == null) return _retained(loading: false);
-    _sameClock = ref.read(activeConnectionProvider).value!.isLocal;
-    if (_sameClock) {
+    final connection = ref.read(activeConnectionProvider).value!;
+    _sameClock = connection.isLocal;
+    _resultOnly = !_sameClock && connection.resultOnlySupported && resultOnly;
+    if (_sameClock || _resultOnly) {
       _quiet = false;
+      _awayTimer?.cancel();
     } else {
       _onScreen(ref.read(appForegroundProvider), building: true);
       ref.listen(appForegroundProvider, (_, onScreen) => _onScreen(onScreen));
@@ -660,6 +664,11 @@ class ChatController extends Notifier<ChatState> {
   /// arrive); back on screen it takes them up again from a fresh snapshot.
   bool _quiet = false;
 
+  /// The Host advertises `remote.result.only.v1` and 只看结果 is on: follows
+  /// carry `resultOnly`, so process records arrive as one `log/omitted`
+  /// marker. Applies to every follow this notifier opens.
+  bool _resultOnly = false;
+
   void _onScreen(bool onScreen, {bool building = false}) {
     _awayTimer?.cancel();
     _awayLong = false;
@@ -675,7 +684,7 @@ class ChatController extends Notifier<ChatState> {
   }
 
   void _quietIfRunning() {
-    if (!_awayLong || _quiet || !ref.mounted || !_transcript.running) return;
+    if (_resultOnly || !_awayLong || _quiet || !ref.mounted || !_transcript.running) return;
     _quiet = true;
     _relisten();
   }
@@ -807,7 +816,8 @@ class ChatController extends Notifier<ChatState> {
         .watch(
           sessionId,
           options: WatchOptions(
-            assistantStream: !_quiet,
+            assistantStream: !_quiet && !_resultOnly,
+            resultOnly: _resultOnly,
             includeSyncEvents: true,
             activate: true,
             activationAllowed: () {
@@ -2026,6 +2036,7 @@ class ChatController extends Notifier<ChatState> {
         beforeSeq: oldest,
         maxMessages: 500,
         turnWindow: const TurnWindow(50, 2),
+        resultOnly: _resultOnly,
       );
       if (!current()) return;
       _transcript.prependHistory(page);

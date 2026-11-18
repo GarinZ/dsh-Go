@@ -30,9 +30,14 @@ class HostConnection {
     this.hostId,
     this.name,
     this.workingDirectory,
+    this.resultOnlySupported = false,
   });
 
   final DshClient client;
+
+  /// The Host advertises `remote.result.only.v1`: live follows and history
+  /// pages can omit process records. Always false for 本机 and SSH.
+  final bool resultOnlySupported;
 
   /// A fixed label (tests); null builds it from [kind] and [name].
   final String? _label;
@@ -276,6 +281,10 @@ class RemoteConnectionController extends AsyncNotifier<HostConnection?> {
       kind: host.kind,
       hostId: host.id,
       workingDirectory: link is SshHostLink ? link.resolvedWorkingDirectory : null,
+      resultOnlySupported:
+          link is RelayHostLink &&
+          link.backend is ResultOnlyRelayBackend &&
+          (link.backend as ResultOnlyRelayBackend).supportsResultOnly(client),
     );
 
     ref.listen(hostNameProvider(host), (_, next) {

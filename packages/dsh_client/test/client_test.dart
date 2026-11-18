@@ -19,6 +19,7 @@ class _HistoryFailsOnce extends DshClient {
     int? beforeSeq,
     int? maxMessages,
     TurnWindow? turnWindow,
+    bool resultOnly = false,
   }) {
     if (++pages == 1) return Future.error(DshHttpException(statusCode, 'temporary'));
     return super.history(
@@ -27,6 +28,7 @@ class _HistoryFailsOnce extends DshClient {
       beforeSeq: beforeSeq,
       maxMessages: maxMessages,
       turnWindow: turnWindow,
+      resultOnly: resultOnly,
     );
   }
 }
@@ -196,6 +198,34 @@ void main() {
     final snapshot = frames.first;
     final eventFrames = frames.where((f) => f['type'] == 'event').toList();
     Map<String, Object?> eventFrame(int seq) => eventFrames.firstWhere((f) => (f['event'] as Map)['seq'] == seq);
+
+    test('result-only follows and history pages carry the request flag', () async {
+      final sessionId = (snapshot['header'] as Map)['id'] as String;
+      Map<String, Object?>? follow;
+      host.onOpen = (socket, id, endpoint, payload) {
+        follow = (payload['args'] as Map)['request'] as Map<String, Object?>;
+        socket.item(id, snapshot);
+      };
+      final client = await connect();
+      addTearDown(client.close);
+      final events = <DshEvent>[];
+      final sub = client.watch(sessionId, options: const WatchOptions(resultOnly: true)).listen(events.add);
+      addTearDown(sub.cancel);
+      await _until(() => events.whereType<SessionSnapshotEvent>().isNotEmpty);
+      expect(follow, containsPair('resultOnly', true));
+      expect(follow, isNot(contains('assistantStream')));
+
+      Map<String, Object?>? page;
+      host.handlers['session/page'] = (args) {
+        page = args['request'] as Map<String, Object?>;
+        return {
+          'ok': true,
+          'value': {'records': <Object?>[], 'hasMore': false},
+        };
+      };
+      await client.history(sessionId, throughSeq: 10, resultOnly: true);
+      expect(page, containsPair('resultOnly', true));
+    });
 
     test('a transient history 500 is repaired by the next follow without exposing an error', () async {
       final sessionId = (snapshot['header'] as Map)['id'] as String;

@@ -123,4 +123,9 @@ This version goes through the relay, end-to-end encrypted the whole way, not ove
 
 **Compact history** is off by default. Supporting DSH Remote Hosts summarize historical tool arguments and output to reduce history transfer; message text, live replies, approvals and original Host records stay unchanged. Switch to another host (or this phone) and back, or restart the app, to apply. The current client and its automatic reconnects retain their original mode to avoid mixing cached history. After turning it off, select the host again and reopen the chat to load full history. Older Hosts continue sending full history; SSH is unaffected.
 
+<!-- nav: commonSettings,commonRemoteHost,remoteResultOnly -->
+`Settings › Remote host › Results only`
+
+**Results only** is off by default. Supporting DSH Remote Hosts send only status and final replies in live follows and history; tool calls, reasoning and steps collapse into one “N process records omitted” line. Approvals, questions, errors and interruptions still arrive, so nothing that needs you is missed. Switching applies to the next follow without rebuilding the connection. The switch is unavailable on Hosts without support; older Hosts keep sending the full process. It affects DSH Remote chats only, not SSH or this phone. The full process stays on the Host and remains available on the computer.
+
 DSH Remote connects to one host at a time; switching disconnects the previous one. Over DSH Remote: you can send images only, DSH Web doesn't open in the app, plugins can only be turned on or off, and DS Bot and chat log export aren't available.

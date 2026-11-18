@@ -471,5 +471,17 @@
   "remoteCompactHistory": "Compact history",
   "remoteErrHistoryModeChanged": "The Host no longer supports compact history. Switch to another host and back, or restart the app, to reload history.",
   "remoteCompactHistoryHint": "Reduces historical tool details on supporting DSH Remote Hosts; live replies and approvals stay unchanged. Switch hosts or restart the app to apply. Older Hosts keep full history.",
-  "searchKwRemoteCompactHistory": "compact slim lite history tools transfer bandwidth remote"
+  "searchKwRemoteCompactHistory": "compact slim lite history tools transfer bandwidth remote",
+  "remoteResultOnly": "Results only",
+  "remoteResultOnlyHint": "Supporting Remote Hosts sync status and final replies only; tool calls and reasoning collapse into one line. Approvals and errors still arrive. Older Hosts keep sending the full process.",
+  "remoteResultOnlyUnsupported": "This Host doesn’t support results-only sync. Update the DSH Remote plugin on the computer, then reconnect.",
+  "remoteOmittedProcess": "{count} process records omitted",
+  "@remoteOmittedProcess": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "searchKwRemoteResultOnly": "results only omit process reasoning tools bandwidth battery remote"
 }

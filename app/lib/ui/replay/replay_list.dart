@@ -232,6 +232,7 @@ class _ReplayListState extends ConsumerState<ReplayList> {
         gapBefore: replayGapBefore,
       ),
       NoticeRowData(:final item) => NoticeRow(item: item),
+      OmittedRow() => const SizedBox.shrink(),
       ChangeCardRow(:final files) => ChangeCard(files: files),
       CommandNoticeRow(:final notice) => CommandRow(notice: notice),
       ArtifactCardRow() || ApprovalRow() || QuestionRow() => const SizedBox.shrink(),
@@ -244,7 +245,7 @@ class _ReplayListState extends ConsumerState<ReplayList> {
 double replayGapBefore(ChatRow row, ChatRow? previous) {
   bool isUser(ChatRow? r) => r is UserRow || r is PendingRow;
   bool isProcess(ChatRow? r) => switch (r) {
-    ToolCallRow() || ToolGroupRow() || CommandNoticeRow() => true,
+    ToolCallRow() || ToolGroupRow() || CommandNoticeRow() || OmittedRow() => true,
     AssistantRow(:final item) => item.text.trim().isEmpty && item.reasoning.trim().isNotEmpty,
     NoticeRowData(:final item) => item.kind != 'error',
     _ => false,

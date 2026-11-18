@@ -1,0 +1,613 @@
+diff --git a/packages/plugin/src/harness-remote-bridge.ts b/packages/plugin/src/harness-remote-bridge.ts
+index 489f68d..95606ba 100644
+--- a/packages/plugin/src/harness-remote-bridge.ts
++++ b/packages/plugin/src/harness-remote-bridge.ts
+@@ -1,4 +1,5 @@
+ import { compactHistory } from './compact-history.js'
++import { RESULT_ONLY_HISTORY_ENDPOINTS, filterResultOnly, resultOnlyStream, takeResultOnly } from './result-only.js'
+ import { randomUUID } from 'node:crypto'
+ import { homedir } from 'node:os'
+ import { lstat, realpath, stat } from 'node:fs/promises'
+@@ -312,6 +313,12 @@ export class HarnessRemoteBridge {
+ 
+   async call(input: unknown): Promise<TypertRpcResult> {
+     const params = callSchema.parse(input) as HarnessRemoteCallParams
++    // Only session history endpoints understand the flag; leave every other
++    // payload byte-for-byte alone.
++    const extracted = RESULT_ONLY_HISTORY_ENDPOINTS.has(params.endpoint)
++      ? takeResultOnly(params.payload)
++      : { payload: params.payload, resultOnly: false }
++    params.payload = extracted.payload
+     if ((params.endpoint === 'remoteUploads/upload' || params.endpoint === 'remoteImages/upload') && this.uploadAttachment !== undefined) {
+       const payload = z.object({ args: z.unknown() }).strict().parse(params.payload)
+       return { ok: true, value: await this.uploadAttachment(payload.args) }
+@@ -376,9 +383,10 @@ export class HarnessRemoteBridge {
+       // to canonical base64. (Codex/ACP workspace bridges already return the
+       // wire shape and are left unchanged.)
+       const filteredResult = filterSessionListProjections(params.endpoint, result)
++      const resultOnlyResult = extracted.resultOnly ? filterResultOnly(params.endpoint, filteredResult) : filteredResult
+       const wireResult = normalizeWorkspaceBinaryResult(params.endpoint,
+         this.compactHistoryEnabled && ['session/page', 'session/events', 'session/history', 'subagent/history'].includes(params.endpoint)
+-          ? compactHistory(filteredResult) : filteredResult)
++          ? compactHistory(resultOnlyResult) : resultOnlyResult)
+       return reservation === undefined ? wireResult : this.terminal.result(params.endpoint, params.payload, wireResult, reservation)
+     } catch (error) {
+       if (reservation !== undefined) this.terminal.result(params.endpoint, params.payload, { ok: false, error: { code: 'FAILED', message: '', details: {} } }, reservation)
+@@ -566,6 +574,10 @@ export class HarnessRemoteBridge {
+ 
+   async openStream(input: unknown): Promise<{ opened: true; streamId: string }> {
+     const params = streamOpenSchema.parse(input) as HarnessRemoteStreamOpenParams
++    const extracted = params.endpoint === 'session/follow'
++      ? takeResultOnly(params.payload)
++      : { payload: params.payload, resultOnly: false }
++    params.payload = extracted.payload
+     this.assertAllowed(params.endpoint)
+     if (params.endpoint.startsWith('pluginManager/')) throw new RpcError('METHOD_NOT_ALLOWED', 'Plugin management endpoints are not streams.')
+     if (params.endpoint.startsWith('settings/')) throw new RpcError('METHOD_NOT_ALLOWED', 'Settings endpoints are not streams.')
+@@ -590,7 +602,7 @@ export class HarnessRemoteBridge {
+       throw error
+     }
+     if (params.endpoint === '$events') source = this.remoteEventsWithFallback(source, controller.signal)
+-    void this.pump(params.streamId, source, controller.signal, params.endpoint === 'session/follow', params.transferFrames)
++    void this.pump(params.streamId, source, controller.signal, params.endpoint === 'session/follow', params.transferFrames, extracted.resultOnly)
+     return { opened: true, streamId: params.streamId }
+   }
+ 
+@@ -712,11 +724,11 @@ export class HarnessRemoteBridge {
+     }
+   }
+ 
+-  private async pump(streamId: string, source: AsyncIterable<unknown>, signal: AbortSignal, historyFollow = false, transferFrames = false): Promise<void> {
++  private async pump(streamId: string, source: AsyncIterable<unknown>, signal: AbortSignal, historyFollow = false, transferFrames = false, resultOnly = false): Promise<void> {
+     let reason: HarnessRemoteStreamClosedData['reason'] = 'completed'
+     let failure: HarnessRemoteStreamClosedData['failure']
+     try {
+-      for await (const value of source) {
++      for await (const value of resultOnly ? resultOnlyStream(source, signal) : source) {
+         if (signal.aborted) break
+         const frame: HarnessRemoteFrameData = {
+           streamId,
+diff --git a/packages/plugin/src/result-only.ts b/packages/plugin/src/result-only.ts
+new file mode 100644
+index 0000000..b75c8ad
+--- /dev/null
++++ b/packages/plugin/src/result-only.ts
+@@ -0,0 +1,311 @@
++/**
++ * Result-only projection for Remote sessions.
++ *
++ * A phone that only wants the outcome of a Remote turn does not need every
++ * streamed token, tool payload or subagent frame. This projection keeps the
++ * durable skeleton (turn lifecycle, user/assistant text, approvals, errors)
++ * and replaces each run of dropped process records with one small durable
++ * marker. The marker's seq is the last dropped seq, so the follow stream stays
++ * seq-contiguous and the client's gap/resync logic is unchanged.
++ *
++ * The projection is opt-in per request: the Host advertises the capability
++ * and the client puts `resultOnly: true` in the native request payload. The flag is
++ * stripped before the payload reaches the Harness gateway, whose strict codecs
++ * reject unknown fields.
++ */
++
++export const RESULT_ONLY_CAPABILITY = 'remote.result.only.v1'
++
++/** Durable event emitted in place of a dropped run. */
++export const RESULT_ONLY_MARKER_TYPE = 'log/omitted'
++
++/** Endpoints whose historical reads are filtered in result-only mode. */
++export const RESULT_ONLY_HISTORY_ENDPOINTS = new Set([
++  'session/events',
++  'session/page',
++  'session/history',
++  'subagent/history',
++])
++
++/**
++ * Whole families that are process detail, not outcome. Kept generic so a new
++ * tool/subagent/job record type does not silently leak into result-only mode.
++ */
++const DROPPED_PREFIXES = ['tool/', 'step/', 'subagent/', 'job/', 'session-log-deepseek/', 'request/']
++const DROPPED_TYPES = new Set(['assistant/attempt', 'todo/write', 'llm/retry', 'llm/retry-started'])
++
++type RecordValue = Record<string, unknown>
++
++interface OmittedRun {
++  fromSeq: number
++  seq: number
++  count: number
++  bytes: number
++  kinds: string[]
++  tools: string[]
++  turn?: number
++  step?: number
++  time?: number
++}
++
++const isRecord = (value: unknown): value is RecordValue =>
++  typeof value === 'object' && value !== null && !Array.isArray(value)
++
++/**
++ * Remove the per-request flag from every shape the Client can send, then
++ * report whether result-only was requested. The flag may sit at the payload
++ * root, in `request`, or in `args.request` (the native gateway shape).
++ */
++export function takeResultOnly(payload: unknown): { payload: unknown; resultOnly: boolean } {
++  if (!isRecord(payload)) return { payload, resultOnly: false }
++  let resultOnly = false
++  let changed = false
++  const strip = (value: unknown): unknown => {
++    if (!isRecord(value) || !Object.hasOwn(value, 'resultOnly')) return value
++    if (value.resultOnly === true) resultOnly = true
++    const next = { ...value }
++    delete next.resultOnly
++    changed = true
++    return next
++  }
++
++  let next = strip(payload) as RecordValue
++  let nextArgs = strip(next.args)
++  let argsChanged = nextArgs !== next.args
++  if (isRecord(nextArgs)) {
++    let inner = nextArgs
++    // Only touch keys that are present: adding `_request: undefined` makes the
++    // Harness gateway reject the payload as an unexpected field.
++    for (const key of ['request', '_request'] as const) {
++      if (!Object.hasOwn(inner, key)) continue
++      const projected = strip(inner[key])
++      if (projected === inner[key]) continue
++      inner = { ...inner, [key]: projected }
++      argsChanged = true
++    }
++    if (inner !== nextArgs) nextArgs = inner
++  }
++  if (argsChanged) next = { ...next, args: nextArgs }
++  const request = strip(next.request)
++  if (request !== next.request) next = { ...next, request }
++  return { payload: changed ? next : payload, resultOnly }
++}
++
++/** Keep only the assistant's visible text blocks; stream chunks are process. */
++function trimAssistantMessage(event: RecordValue): RecordValue | undefined {
++  const data = isRecord(event.data) ? event.data : undefined
++  const message = data !== undefined && isRecord(data.message) ? data.message : undefined
++  if (data === undefined || message === undefined) return undefined
++  const content = Array.isArray(message.content)
++    ? message.content.filter(block => isRecord(block) && block.type === 'text' && typeof block.text === 'string' && block.text.trim().length > 0)
++    : []
++  const text = typeof message.text === 'string' && message.text.trim().length > 0 ? message.text : undefined
++  if (content.length === 0 && text === undefined) return undefined
++  const nextData = { ...data }
++  delete nextData.stream
++  return {
++    ...event,
++    data: {
++      ...nextData,
++      message: { ...message, ...(content.length === 0 ? {} : { content }) },
++    },
++  }
++}
++
++function toolNameOf(event: RecordValue): string | undefined {
++  const data = isRecord(event.data) ? event.data : undefined
++  if (data === undefined) return undefined
++  for (const key of ['name', 'toolName', 'tool']) {
++    const value = data[key]
++    if (typeof value === 'string' && value.length > 0) return value
++  }
++  const call = isRecord(data.call) ? data.call : undefined
++  return call !== undefined && typeof call.name === 'string' && call.name.length > 0 ? call.name : undefined
++}
++
++function encodedLength(value: unknown): number {
++  try {
++    return JSON.stringify(value)?.length ?? 0
++  } catch {
++    return 0
++  }
++}
++
++/** Stateful projection for one follow stream, page or snapshot. */
++export class ResultOnlyFilter {
++  private run: OmittedRun | undefined
++
++  /** Project one durable event; may return the marker before the kept event. */
++  push(event: RecordValue): RecordValue[] {
++    const type = typeof event.type === 'string' ? event.type : ''
++    const seq = typeof event.seq === 'number' && Number.isFinite(event.seq) ? event.seq : undefined
++    if (this.isDropped(type)) {
++      if (seq !== undefined) this.omit(event, type, seq)
++      return []
++    }
++    if (type === 'assistant/message') {
++      const trimmed = trimAssistantMessage(event)
++      if (trimmed === undefined) {
++        if (seq !== undefined) this.omit(event, type, seq)
++        return []
++      }
++      const marker = this.takeRun()
++      return marker === undefined ? [trimmed] : [marker, trimmed]
++    }
++    const marker = this.takeRun()
++    return marker === undefined ? [event] : [marker, event]
++  }
++
++  /** End the current run, if any, and return its marker. */
++  flush(): RecordValue | undefined {
++    return this.takeRun()
++  }
++
++  /** Project a follow snapshot in place; a trailing omission needs no marker. */
++  snapshot(value: RecordValue): RecordValue {
++    this.run = undefined
++    const next = { ...value }
++    if (Array.isArray(value.records)) next.records = this.filterEntries(value.records, false)
++    if (isRecord(next.assistantStream)) {
++      const assistantStream = { ...next.assistantStream }
++      delete assistantStream.activeAttempt
++      next.assistantStream = assistantStream
++    }
++    this.run = undefined
++    return next
++  }
++
++  /** Project a records list; pages flush the run at the page edge. */
++  entries(records: unknown[], flush = true): unknown[] {
++    return this.filterEntries(records, flush)
++  }
++
++  /** Project a raw events list (session/events). */
++  events(events: unknown[], flush = true): unknown[] {
++    const out: unknown[] = []
++    for (const event of events) {
++      if (!isRecord(event)) {
++        out.push(event)
++        continue
++      }
++      out.push(...this.push(event))
++    }
++    if (flush) {
++      const marker = this.takeRun()
++      if (marker !== undefined) out.push(marker)
++    }
++    return out
++  }
++
++  private filterEntries(records: unknown[], flush: boolean): unknown[] {
++    const out: unknown[] = []
++    for (const record of records) {
++      if (isRecord(record) && isRecord(record.event)) {
++        for (const event of this.push(record.event)) out.push({ ...record, event })
++      } else if (isRecord(record)) {
++        for (const event of this.push(record)) out.push(event)
++      } else {
++        out.push(record)
++      }
++    }
++    if (flush) {
++      const marker = this.takeRun()
++      if (marker !== undefined) out.push({ type: 'event', event: marker })
++    }
++    return out
++  }
++
++  private isDropped(type: string): boolean {
++    return DROPPED_TYPES.has(type) || DROPPED_PREFIXES.some(prefix => type.startsWith(prefix))
++  }
++
++  private omit(event: RecordValue, type: string, seq: number): void {
++    const data = isRecord(event.data) ? event.data : undefined
++    const run = this.run ?? {
++      fromSeq: seq,
++      seq,
++      count: 0,
++      bytes: 0,
++      kinds: [],
++      tools: [],
++    }
++    run.fromSeq = Math.min(run.fromSeq, seq)
++    run.seq = Math.max(run.seq, seq)
++    run.count += 1
++    run.bytes += encodedLength(event)
++    if (!run.kinds.includes(type) && run.kinds.length < 8) run.kinds.push(type)
++    const tool = toolNameOf(event)
++    if (tool !== undefined && !run.tools.includes(tool) && run.tools.length < 8) run.tools.push(tool)
++    if (data !== undefined && typeof data.turn === 'number') run.turn = data.turn
++    if (data !== undefined && typeof data.step === 'number') run.step = data.step
++    if (typeof event.time === 'number') run.time = event.time
++    this.run = run
++  }
++
++  private takeRun(): RecordValue | undefined {
++    const run = this.run
++    if (run === undefined) return undefined
++    this.run = undefined
++    return {
++      type: RESULT_ONLY_MARKER_TYPE,
++      seq: run.seq,
++      time: run.time ?? 0,
++      data: {
++        fromSeq: run.fromSeq,
++        count: run.count,
++        bytes: run.bytes,
++        kinds: run.kinds,
++        ...(run.tools.length === 0 ? {} : { tools: run.tools }),
++        ...(run.turn === undefined ? {} : { turn: run.turn }),
++        ...(run.step === undefined ? {} : { step: run.step }),
++      },
++    }
++  }
++}
++
++/** Project one history-style RPC result. Non-history endpoints pass through. */
++export function filterResultOnly<T>(endpoint: string, result: T): T {
++  if (!RESULT_ONLY_HISTORY_ENDPOINTS.has(endpoint)) return result
++  if (!isRecord(result) || result.ok !== true || !isRecord(result.value)) return result
++  const value = result.value
++  if (endpoint === 'session/events' && Array.isArray(value.events)) {
++    return { ...result, value: { ...value, events: new ResultOnlyFilter().events(value.events) } } as T
++  }
++  if (Array.isArray(value.records)) {
++    return { ...result, value: { ...value, records: new ResultOnlyFilter().entries(value.records) } } as T
++  }
++  return result
++}
++
++/**
++ * Project a session/follow stream. Assistant stream frames are dropped whole;
++ * durable events keep their seq contract through markers; a run still open
++ * when the stream closes is flushed as the final event.
++ */
++export async function* resultOnlyStream(source: AsyncIterable<unknown>, signal: AbortSignal): AsyncGenerator<unknown> {
++  const filter = new ResultOnlyFilter()
++  for await (const value of source) {
++    if (signal.aborted) return
++    if (!isRecord(value)) {
++      yield value
++      continue
++    }
++    if (value.type === 'snapshot') {
++      yield filter.snapshot(value)
++      continue
++    }
++    if (value.type === 'event') {
++      if (!isRecord(value.event)) {
++        yield value
++        continue
++      }
++      for (const event of filter.push(value.event)) yield { ...value, event }
++      continue
++    }
++    if (value.type === 'assistant-stream') continue
++    yield value
++  }
++  if (signal.aborted) return
++  const marker = filter.flush()
++  if (marker !== undefined) yield { type: 'event', event: marker }
++}
+diff --git a/packages/plugin/src/rpc-router.ts b/packages/plugin/src/rpc-router.ts
+index 9cc3e15..68f5408 100644
+--- a/packages/plugin/src/rpc-router.ts
++++ b/packages/plugin/src/rpc-router.ts
+@@ -19,6 +19,7 @@ import type { SafeLogger } from './logging.js'
+ import type { CodexPeerBridge } from './codex/peer-bridge.js'
+ import type { AcpPeerBridge } from './acp/peer-bridge.js'
+ import { RpcError, safeErrorCode, workspaceFileFailureReason } from './safe-error.js'
++import { RESULT_ONLY_CAPABILITY } from './result-only.js'
+ import type { WorkspaceUploadHost } from './workspace-upload.js'
+ import type { PluginRouteBridge } from './plugin-route-bridge.js'
+ import type { RemoteCompactionOperations, RemoteCompactionOwner } from './remote-compaction-operations.js'
+@@ -182,7 +183,7 @@ export class RpcRouter {
+         const hostCapabilities = (await this.capabilities()).filter(capability => capability !== BINARY_UPLOAD_CAPABILITY && capability !== LAN_UPLOAD_CAPABILITY)
+         const remoteAvailable = hostCapabilities.includes('harness.remote.v1') || hostCapabilities.includes('harness.remote.v3')
+         const capabilities = [...new Set([...hostCapabilities, 'remote.history.compact.v1',
+-          ...(this.harnessRemote === undefined || !remoteAvailable ? [] : ['harness.remote.stream.transfer.v1']),
++          ...(this.harnessRemote === undefined || !remoteAvailable ? [] : ['harness.remote.stream.transfer.v1', RESULT_ONLY_CAPABILITY]),
+           ...(this.compaction === undefined ? [] : [REMOTE_COMPACTION_CAPABILITY]),
+           ...(this.workspaceUpload === undefined || !hostCapabilities.includes('workspace.upload.v1') ? [] : [BINARY_UPLOAD_CAPABILITY, ...(this.lanUpload ? [LAN_UPLOAD_CAPABILITY] : [])]),
+         ])]
+diff --git a/packages/plugin/tests/result-only.test.ts b/packages/plugin/tests/result-only.test.ts
+new file mode 100644
+index 0000000..0022dff
+--- /dev/null
++++ b/packages/plugin/tests/result-only.test.ts
+@@ -0,0 +1,200 @@
++import { describe, expect, it, vi } from 'vitest'
++import { createRpcRequest } from '@dsh-remote/protocol'
++import {
++  filterResultOnly,
++  RESULT_ONLY_CAPABILITY,
++  RESULT_ONLY_MARKER_TYPE,
++  ResultOnlyFilter,
++  resultOnlyStream,
++  takeResultOnly,
++} from '../src/result-only.js'
++import { RpcRouter } from '../src/rpc-router.js'
++
++const assistant = (seq: number, content: unknown[], extra: Record<string, unknown> = {}) => ({
++  type: 'assistant/message',
++  seq,
++  time: seq * 10,
++  data: {
++    turn: 1,
++    step: 2,
++    stream: [{ dt: 10, texts: ['secret token'] }],
++    message: { role: 'assistant', content },
++    ...extra,
++  },
++})
++
++const event = (seq: number, type: string, data: Record<string, unknown> = {}) => ({ type, seq, time: seq * 10, data })
++
++const page = (records: unknown[]) => ({ cursor: 9, throughSeq: 9, hasMore: true, activeTurnId: 'turn-1', records })
++
++describe('result-only request flag', () => {
++  it('strips the flag from root, request and native args without mutating the caller', () => {
++    const native = { args: { request: { address: 'session-1', resultOnly: true } }, request: { resultOnly: true } }
++    const copy = structuredClone(native)
++    expect(takeResultOnly(native)).toEqual({
++      payload: { args: { request: { address: 'session-1' } }, request: {} },
++      resultOnly: true,
++    })
++    expect(native).toEqual(copy)
++    expect(takeResultOnly({ args: { _request: { resultOnly: false } } })).toEqual({ payload: { args: { _request: {} } }, resultOnly: false })
++    expect(takeResultOnly({ request: { address: 'session-1' } })).toEqual({ payload: { request: { address: 'session-1' } }, resultOnly: false })
++  })
++
++  it('does not add an absent legacy _request field when stripping args.request', () => {
++    const payload = { args: { request: { address: 'session-1', resultOnly: true } } }
++    const { payload: projected } = takeResultOnly(payload)
++    const args = (projected as { args: Record<string, unknown> }).args
++    expect(args).toEqual({ request: { address: 'session-1' } })
++    expect(Object.hasOwn(args, '_request')).toBe(false)
++  })
++})
++
++describe('ResultOnlyFilter', () => {
++  it('keeps lifecycle and visible text, collapsing tool and step runs into markers', () => {
++    const filter = new ResultOnlyFilter()
++    const kept = [
++      event(1, 'user/message', { content: [{ type: 'text', text: 'do it' }] }),
++      event(2, 'tool/call', { name: 'Bash', arguments: '{"command":"ls"}' }),
++      event(3, 'tool/result', { name: 'Bash', output: 'x'.repeat(1000) }),
++      assistant(4, [{ type: 'reasoning', text: 'think' }, { type: 'text', text: 'done' }, { type: 'tool-call', toolName: 'Read' }]),
++      assistant(5, [{ type: 'reasoning', text: 'only thinking' }]),
++      event(6, 'step/start', { step: 2 }),
++      event(7, 'turn/end', { reason: { kind: 'completed' } }),
++    ].flatMap(value => filter.push(value))
++
++    expect(kept.map(value => value.seq)).toEqual([1, 3, 4, 6, 7])
++    expect(kept[1]).toMatchObject({ type: RESULT_ONLY_MARKER_TYPE, seq: 3, data: { fromSeq: 2, count: 2, kinds: ['tool/call', 'tool/result'], tools: ['Bash'] } })
++    expect(kept[2]).toMatchObject({
++      type: 'assistant/message',
++      data: {
++        message: { role: 'assistant', content: [{ type: 'text', text: 'done' }] },
++      },
++    })
++    expect(kept[2]!.data).not.toHaveProperty('stream')
++    expect(kept[3]).toMatchObject({ type: RESULT_ONLY_MARKER_TYPE, seq: 6, data: { fromSeq: 5, count: 2 } })
++  })
++
++  it('treats transient retries as process so they do not split an omission run', () => {
++    const filter = new ResultOnlyFilter()
++    const kept = [
++      event(1, 'tool/call', { name: 'Bash', arguments: '{}' }),
++      event(2, 'llm/retry', { attempt: 1 }),
++      event(3, 'llm/retry-started', { attempt: 1 }),
++      event(4, 'tool/result', { name: 'Bash', output: 'ok' }),
++      event(5, 'turn/end', { reason: { kind: 'completed' } }),
++    ].flatMap(value => filter.push(value))
++
++    expect(kept.map(value => value.seq)).toEqual([4, 5])
++    expect(kept[0]).toMatchObject({ type: RESULT_ONLY_MARKER_TYPE, seq: 4, data: { fromSeq: 1, count: 4 } })
++  })
++
++  it('drops assistant stream frames and trims snapshots without a trailing marker', () => {
++    const filter = new ResultOnlyFilter()
++    const snapshot = {
++      type: 'snapshot',
++      ...page([
++        { type: 'event', event: event(1, 'user/message', { content: [] }) },
++        { type: 'event', event: assistant(2, [{ type: 'reasoning', text: 'hidden' }]) },
++        { type: 'event', event: assistant(3, [{ type: 'text', text: 'visible' }]) },
++      ]),
++      assistantStream: { revision: 7, activeAttempt: { turn: 1, stream: ['token'] } },
++    }
++    const projected = filter.snapshot(structuredClone(snapshot)) as {
++      records: { event: { seq: number; type?: string; data?: Record<string, unknown> } }[]
++      assistantStream: { revision: number }
++    }
++    expect(projected.records.map(row => row.event.seq)).toEqual([1, 2, 3])
++    expect(projected.records[1]).toMatchObject({ event: { type: RESULT_ONLY_MARKER_TYPE, seq: 2, data: { fromSeq: 2, count: 1 } } })
++    expect(projected.assistantStream).toEqual({ revision: 7 })
++    expect(projected.records[2]!.event.data).not.toHaveProperty('stream')
++    expect(filter.flush()).toBeUndefined()
++  })
++})
++
++describe('filterResultOnly', () => {
++  it('projects page records with wrapped markers and leaves cursors and other endpoints alone', () => {
++    const value = page([
++      { type: 'event', event: event(1, 'user/message') },
++      { type: 'event', event: event(2, 'tool/call') },
++      { type: 'event', event: event(3, 'tool/result') },
++      { type: 'event', event: event(4, 'turn/end') },
++    ])
++    const original = structuredClone(value)
++    const result = filterResultOnly('session/page', { ok: true, value }) as { ok: true; value: typeof value }
++    expect(result.value).toMatchObject({ cursor: 9, throughSeq: 9, hasMore: true })
++    expect(result.value.records).toHaveLength(3)
++    expect(result.value.records[1]).toEqual({ type: 'event', event: { type: RESULT_ONLY_MARKER_TYPE, seq: 3, time: 30, data: { fromSeq: 2, count: 2, kinds: ['tool/call', 'tool/result'], bytes: expect.any(Number) } } })
++    expect(value).toEqual(original)
++    expect(filterResultOnly('session/list', { ok: true, value: original })).toEqual({ ok: true, value: original })
++  })
++
++  it('projects raw session/events lists', () => {
++    const result = filterResultOnly('session/events', { ok: true, value: { events: [event(5, 'tool/call'), event(6, 'turn/end')] } }) as { value: { events: { type: string; seq: number }[] } }
++    expect(result.value.events.map(item => item.type)).toEqual([RESULT_ONLY_MARKER_TYPE, 'turn/end'])
++    expect(result.value.events[0]!.seq).toBe(5)
++  })
++})
++
++describe('resultOnlyStream', () => {
++  it('projects frames and flushes an open run at stream end', async () => {
++    async function* source() {
++      yield { type: 'snapshot', ...page([{ type: 'event', event: event(1, 'user/message') }]) }
++      yield { type: 'assistant-stream', frame: { revision: 1, chunks: [] } }
++      yield { type: 'event', event: event(2, 'tool/call') }
++      yield { type: 'event', event: event(3, 'tool/result') }
++    }
++    const out: { type: string; event?: { type: string; seq: number } }[] = []
++    for await (const frame of resultOnlyStream(source(), new AbortController().signal)) out.push(frame as never)
++    expect(out.map(frame => frame.type)).toEqual(['snapshot', 'event'])
++    expect(out[1]!.event).toMatchObject({ type: RESULT_ONLY_MARKER_TYPE, seq: 3, data: { fromSeq: 2, count: 2 } })
++  })
++})
++
++it('applies result-only inside the bridge without forwarding the flag to the Gateway', async () => {
++  const { HarnessRemoteBridge } = await import('../src/harness-remote-bridge.js')
++  const source = page([
++    { type: 'event', event: event(1, 'user/message') },
++    { type: 'event', event: event(2, 'tool/call') },
++    { type: 'event', event: assistant(3, [{ type: 'text', text: 'answer' }]) },
++  ])
++  const snapshot = { type: 'snapshot', ...source, assistantStream: { revision: 1, activeAttempt: { stream: ['token'] } } }
++  const open = vi.fn(async () => (async function* () {
++    yield snapshot
++    yield { type: 'event', event: event(4, 'tool/call') }
++    yield { type: 'event', event: event(5, 'turn/end') }
++  })())
++  const dispatch = vi.fn(async () => ({ ok: true, value: source }))
++  const publish = vi.fn(async (_event: string, _data: unknown) => undefined)
++  const gateway = { dispatch, open, failure: () => ({ code: 'FAILED', message: '', details: {} }), supportsCarrier: true }
++  const bridge = new HarnessRemoteBridge(gateway as never, publish)
++
++  expect(await bridge.call({ endpoint: 'session/page', payload: { args: { request: { resultOnly: true } } } })).toMatchObject({ ok: true })
++  expect(dispatch).toHaveBeenCalledWith('session/page', { args: { request: {} } }, expect.anything())
++
++  await bridge.openStream({ streamId: 'follow', endpoint: 'session/follow', payload: { args: { request: { address: 'session-1', resultOnly: true } } } })
++  await vi.waitFor(() => expect(publish).toHaveBeenCalledWith('harness.remote.stream.closed', { streamId: 'follow', reason: 'completed' }))
++  expect(open).toHaveBeenCalledWith('session/follow', { args: { request: { address: 'session-1' } } }, expect.anything())
++  type PublishedFrame = { type?: string; records?: { event: { seq: number } }[]; assistantStream?: { revision?: number } }
++  const frames = publish.mock.calls
++    .filter(call => call[0] === 'harness.remote.frame')
++    .map(call => (call[1] as { value?: unknown }).value as PublishedFrame)
++  expect(frames[0]).toMatchObject({ type: 'snapshot', assistantStream: { revision: 1 } })
++  expect(frames[0]!.records!.map(row => row.event.seq)).toEqual([1, 2, 3])
++  expect(frames[1]).toMatchObject({ type: 'event', event: { type: RESULT_ONLY_MARKER_TYPE, seq: 4 } })
++  expect(frames[2]).toMatchObject({ type: 'event', event: { type: 'turn/end', seq: 5 } })
++  await bridge.closeAll()
++})
++
++describe('result-only capability', () => {
++  it('is advertised only when the native Harness bridge is present', async () => {
++    const capabilities = () => ['transport.relay', 'harness.remote.v1']
++    const withBridge = new RpcRouter(undefined, undefined, undefined, {} as never, capabilities)
++    const withoutBridge = new RpcRouter(undefined, undefined, undefined, undefined, capabilities)
++    const describeRouter = async (router: RpcRouter) => {
++      const response = await router.handle(createRpcRequest('harness.transport.describe', {}))
++      return (response.payload as { result: { capabilities: string[] } }).result.capabilities
++    }
++    expect(await describeRouter(withBridge)).toContain(RESULT_ONLY_CAPABILITY)
++    expect(await describeRouter(withoutBridge)).not.toContain(RESULT_ONLY_CAPABILITY)
++  })
++})

@@ -681,6 +681,7 @@ class _ChatListState extends ConsumerState<ChatList> with SingleTickerProviderSt
             AssistantChatItem(:final seq) => seq,
             ToolChatItem(:final seq) => seq,
             NoticeChatItem(:final seq) => seq,
+            OmittedChatItem(:final seq) => seq,
           },
         )
         .whereType<int>()
@@ -822,6 +823,7 @@ class _ChatListState extends ConsumerState<ChatList> with SingleTickerProviderSt
         AssistantRow() ||
         ToolCallRow() ||
         NoticeRowData() ||
+        OmittedRow() ||
         ApprovalRow() ||
         QuestionRow() ||
         ChangeCardRow() ||
@@ -854,6 +856,7 @@ class _ChatListState extends ConsumerState<ChatList> with SingleTickerProviderSt
           UserRow(:final item) => item.seq,
           AssistantRow(:final item) => item.seq,
           NoticeRowData(:final item) => item.seq,
+          OmittedRow(:final item) => item.seq,
           TurnProcessRow(:final trace) => trace.endSeq,
           TurnFootnoteRow(:final trace) => trace.endSeq,
           CommandNoticeRow(:final notice) => notice.seq,
@@ -1483,6 +1486,7 @@ class _ChatListState extends ConsumerState<ChatList> with SingleTickerProviderSt
         gapBefore: _gapBefore,
       ),
       NoticeRowData(:final item) => NoticeRow(item: item, action: _noticeAction(item)),
+      OmittedRow(:final count) => _OmittedNotice(count: count),
       ChangeCardRow(:final files) => ChangeCard(files: files),
       ArtifactCardRow(:final group) => ArtifactCard(sessionId: widget.sessionId, group: group),
       CommandNoticeRow(:final notice) => CommandRow(notice: notice),
@@ -1492,6 +1496,25 @@ class _ChatListState extends ConsumerState<ChatList> with SingleTickerProviderSt
         child: QuestionCard(request: request, onAnswer: _answer, onReject: _rejectQuestion),
       ),
     };
+  }
+}
+
+/// 只看结果模式下被省略的一段过程:一行说明,点不开,完整记录在主机上。
+class _OmittedNotice extends StatelessWidget {
+  const _OmittedNotice({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 6, 20, 6),
+      child: Text(
+        appL10n.remoteOmittedProcess(count),
+        style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+      ),
+    );
   }
 }
 

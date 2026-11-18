@@ -40,6 +40,7 @@ class HeldHistoryClient extends DshClient {
     int? beforeSeq,
     int? maxMessages,
     TurnWindow? turnWindow,
+    bool resultOnly = false,
   }) async {
     attempts.add((through: throughSeq, before: beforeSeq));
     final page = await super.history(
@@ -48,6 +49,7 @@ class HeldHistoryClient extends DshClient {
       beforeSeq: beforeSeq,
       maxMessages: maxMessages,
       turnWindow: turnWindow,
+      resultOnly: resultOnly,
     );
     if (holdNext) {
       holdNext = false;

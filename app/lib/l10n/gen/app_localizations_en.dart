@@ -17637,6 +17637,25 @@ class L10nEn extends L10n {
   String get searchKwRemoteCompactHistory => 'compact slim lite history tools transfer bandwidth remote';
 
   @override
+  String get remoteResultOnly => 'Results only';
+
+  @override
+  String get remoteResultOnlyHint =>
+      'Supporting Remote Hosts sync status and final replies only; tool calls and reasoning collapse into one line. Approvals and errors still arrive. Older Hosts keep sending the full process.';
+
+  @override
+  String get remoteResultOnlyUnsupported =>
+      'This Host doesn’t support results-only sync. Update the DSH Remote plugin on the computer, then reconnect.';
+
+  @override
+  String remoteOmittedProcess(int count) {
+    return '$count process records omitted';
+  }
+
+  @override
+  String get searchKwRemoteResultOnly => 'results only omit process reasoning tools bandwidth battery remote';
+
+  @override
   String get remotePairEntry => 'Pair a computer by scanning';
 
   @override

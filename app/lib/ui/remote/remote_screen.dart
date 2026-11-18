@@ -90,6 +90,8 @@ class RemoteScreen extends ConsumerWidget {
     final ssh = ref.watch(hostsProvider.select((s) => s.ssh));
     final active = ref.watch(activeHostProvider);
     final signedIn = ref.watch(relayAccountProvider.select((a) => a.value?.signedIn ?? false));
+    final resultOnly = ref.watch(remoteResultOnlyProvider);
+    final resultOnlySupported = ref.watch(activeConnectionProvider).value?.resultOnlySupported ?? false;
     void push(Widget page) => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
     return AppPage.list(
       title: l10n.commonRemoteHost,
@@ -107,6 +109,15 @@ class RemoteScreen extends ConsumerWidget {
               subtitle: l10n.remoteCompactHistoryHint,
               value: ref.watch(remoteCompactHistoryProvider),
               onChanged: (value) => unawaited(ref.read(remoteCompactHistoryProvider.notifier).set(value)),
+            ),
+            SettingsSwitchTile(
+              key: const ValueKey('remote-result-only'),
+              spot: Spots.remoteResultOnly,
+              subtitle: resultOnlySupported ? l10n.remoteResultOnlyHint : l10n.remoteResultOnlyUnsupported,
+              value: resultOnlySupported && resultOnly,
+              onChanged: resultOnlySupported
+                  ? (value) => unawaited(ref.read(remoteResultOnlyProvider.notifier).set(value))
+                  : null,
             ),
           ],
         ),

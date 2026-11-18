@@ -300,6 +300,7 @@ Future<void> _watchAndPrompt(DshClient client, String sessionId, _Args args, voi
       ToolChatItem(:final name, :final status, :final approvalOutcome) =>
         'tool: $name status=${status.name} approval=${approvalOutcome?.name} result=${jsonEncode(_clip(item.resultText, 80))}',
       NoticeChatItem(:final kind, :final text) => 'notice[$kind]: $text',
+      OmittedChatItem(:final count, :final bytes) => 'omitted: $count records, $bytes bytes',
     };
     log('  - $line');
   }

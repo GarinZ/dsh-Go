@@ -89,6 +89,7 @@ class _Client extends DshClient {
     int? beforeSeq,
     int? maxMessages,
     TurnWindow? turnWindow,
+    bool resultOnly = false,
   }) {
     final read = _Read(throughSeq, beforeSeq);
     reads.add(read);

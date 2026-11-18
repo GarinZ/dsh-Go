@@ -1068,5 +1068,17 @@
   "remoteCompactHistory": "精简历史",
   "remoteErrHistoryModeChanged": "主机已不支持精简历史，请切换到其他主机后再连回来，或重启 App，重新加载历史",
   "remoteCompactHistoryHint": "支持的 DSH Remote 主机会精简历史工具详情，实时回复和审批不变。切换主机或重启 App 后生效；旧主机仍传输完整历史。",
-  "searchKwRemoteCompactHistory": "精简 简洁 历史 工具 传输 流量 远程 compact slim lite"
+  "searchKwRemoteCompactHistory": "精简 简洁 历史 工具 传输 流量 远程 compact slim lite",
+  "remoteResultOnly": "只看结果",
+  "remoteResultOnlyHint": "支持的远程主机只同步状态和最终答复，工具调用、思考过程折叠成一行；审批和错误照常收到。旧主机仍传完整过程。",
+  "remoteResultOnlyUnsupported": "当前主机不支持只看结果。请在电脑上更新 DSH Remote 插件后再连接。",
+  "remoteOmittedProcess": "已省略 {count} 条过程记录",
+  "@remoteOmittedProcess": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "searchKwRemoteResultOnly": "只看 结果 精简 省略 过程 思考 工具 流量 省电 远程 result only"
 }

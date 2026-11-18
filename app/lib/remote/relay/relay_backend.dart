@@ -169,6 +169,13 @@ abstract interface class RelayNetworkBackend {
   Future<RemoteNetworkStatus?> inspectNetwork(DshClient client);
 }
 
+/// Optional: a backend whose Hosts can stream results only, replacing each
+/// dropped run of process records with a `log/omitted` marker. Without this
+/// interface (or with an old Host) the switch stays unavailable.
+abstract interface class ResultOnlyRelayBackend {
+  bool supportsResultOnly(DshClient client);
+}
+
 /// The relay turned off: nothing to sign in to or connect to.
 class UnavailableRelayBackend implements RelayBackend {
   const UnavailableRelayBackend();
