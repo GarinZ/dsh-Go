@@ -2,6 +2,30 @@
 
 每个版本先中文、后英文。发版时把对应版本的正文（不含版本标题）作为 Release 正文，见 `docs/release.md`。
 
+## 1.2.2-resultonly.1 · 2026-11-20
+
+### 中文
+
+- **远程主机：加密对话备份与跨主机恢复。** 在「远程主机」页可以把对话加密备份到手机，再恢复到另一台主机。恢复依赖主机上的新版 Remote 插件（`session.transfer.*`）；本版内置的宿主插件还没有这项能力，升级宿主插件后才能使用。
+- **远程主机：在 App 内打开主机的 DSH Web。** 网页版直接开在 App 里；主机限流时给出说明，不再把整个 WebUI 关掉。
+- **语音通话。** 对话顶栏「新对话」旁新增通话按钮；通话自己创建会话，不会占用你后来切换到的会话。
+- **后台保护。** 新增主动授权与跨平台恢复，Android 上引擎退到后台后更容易被系统留住。
+- **酒馆。** 引擎更新到第七、八波：MVU 发送、显示和聊天导入，全局/预设/卡脚本库，重卡与长聊天更顺。
+- **运行时与打包。** `tawcroot` 默认启动，失败自动回退 PRoot；APK 自动带伙伴素材包；DNS 被一台服务器拒绝后继续问其余服务器；会话后台读取上限提高到 64 MiB。
+- **修复。** 分享长图被截断、更新下载的磁盘空间判断、Android 10 Shell 辅助进程启动、iOS 增强后台回调、限流导致整个 WebUI 关闭等问题。
+- **保留 fork 改动。** 只看结果（result-only）同步、个人更新源，以及对应的文档与运行时补丁。
+
+### English
+
+- **Remote hosts: encrypted conversation backup and cross-host restore.** Back up a conversation from the Remote host page to the phone and restore it on another host. Restore needs a host running a newer Remote plugin with `session.transfer.*`; the host plugin bundled with this build does not have it yet, so this arrives when the host plugin is upgraded.
+- **Remote hosts: open the host's DSH Web inside the app.** The web UI opens inside DSH Go; rate limits are explained instead of tearing down the whole WebUI.
+- **Voice calls.** A call button sits next to New chat in the chat header. A call creates its own session and does not take over a session you switch to later.
+- **Background protection.** Explicit authorization and cross-platform restore make the engine easier for Android to keep alive in the background.
+- **Tavern.** The engine moves to waves seven and eight: MVU send, display and chat import, global/preset/card script libraries, and smoother large cards and long chats.
+- **Runtime and packaging.** `tawcroot` starts by default and falls back to PRoot on failure; APKs carry the companion asset pack; DNS queries continue with the remaining servers after one refuses; background session reads can use up to 64 MiB.
+- **Fixes.** Truncated long share images, update download disk-space checks, Android 10 Shell helper startup, iOS enhanced background callbacks, and rate limits closing the whole WebUI.
+- **Kept from the fork.** Result-only session sync, the personal update feed, and their docs and runtime patches.
+
 ## 1.2.0 · 2026-11-18
 
 ### 中文

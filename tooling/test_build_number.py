@@ -131,6 +131,7 @@ class BuildApkDryRunTest(unittest.TestCase):
                               "--build-name", "0.9.0", "--keep-daemon").stdout
         self.assertIn("flutter build apk --debug --flavor x64 --target-platform android-x64 --build-name 0.9.0 "
                       "--build-number 10251234 --dart-define=DSH_APP_VERSION=0.9.0+10251234 "
+                      "--dart-define=DSH_UPDATE_REPO=GarinZ/dsh-Go --dart-define=DSH_UPDATE_MIRROR= "
                       "-t lib/dev/runtime_probe_main.dart", out)
         self.assertNotIn("gradlew --stop", out)
 
