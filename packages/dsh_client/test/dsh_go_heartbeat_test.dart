@@ -24,6 +24,8 @@ void main() {
       expect(h.stream.conn, 'c1');
       expect(original.closedWith, isNull);
       expect(h.host.connections.all, hasLength(1));
+      // Settle the probe this window dispatched so teardown cannot race it.
+      await h.drainProbeIfSent();
     });
   });
 

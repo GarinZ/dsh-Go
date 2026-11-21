@@ -53,11 +53,6 @@ void main() {
     await dir.delete(recursive: true);
   });
 
-  String newerThanCompiled() {
-    final core = AppInfo.version.split('+').first.split('-').first.split('.');
-    return '${core[0]}.${int.parse(core[1]) + 1}.0+1';
-  }
-
   Map<String, dynamic> manifest({
     String? page = 'https://updates.example/ohos/releases/1.2.0',
     String? version,
@@ -158,10 +153,8 @@ void main() {
   for (final missing in [true, false]) {
     test('OH bundle ${missing ? 'missing' : 'invalid'} retains compiled version and can check', () async {
       device = missing ? null : {'versionName': 'not-a-version', 'versionCode': 42};
-      // A missing/invalid device falls back to the compiled version, so the
-      // fixture's older 1.2.0 feed must be raised above it for this check.
-      http.routes[feed] = (_, _) =>
-          textResponse(jsonEncode(manifest(version: newerThanCompiled())));
+      // The compiled version moves with every release; the feed must stay ahead of it.
+      http.routes[feed] = (_, _) => textResponse(jsonEncode(manifest()..['version'] = '99.0.0+1'));
       final c = container();
       final control = c.read(appUpdateProvider.notifier);
       await control.ready;

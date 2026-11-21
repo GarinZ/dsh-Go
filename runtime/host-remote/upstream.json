@@ -1,9 +1,9 @@
 {
   "package": "ds-harness-remote",
-  "version": "0.6.6",
-  "gitHead": "f26cbba43a90b48accfc1d77fe042589d187626e",
-  "source": "https://codeload.github.com/liguobao/ds-harness-remote/tar.gz/f26cbba43a90b48accfc1d77fe042589d187626e",
-  "sha256": "6f9888eafb71c2a6e93d365875b60d2d220bd5e6b8d81707ee409ab1ef0475ac",
+  "version": "0.6.7",
+  "gitHead": "bce2995e3201c422fcd8dfc2bbddac86046737e1",
+  "source": "https://codeload.github.com/liguobao/ds-harness-remote/tar.gz/bce2995e3201c422fcd8dfc2bbddac86046737e1",
+  "sha256": "50c79ee5306f22ac5d7ba3c6b6004c3fbfc04523e721dc0fd5a136495bea4e46",
   "pnpm": "9.15.4",
   "patch": "patches/0001-result-only.patch",
   "capability": "remote.result.only.v1",
