@@ -2,6 +2,30 @@
 
 每个版本先中文、后英文。发版时把对应版本的正文（不含版本标题）作为 Release 正文，见 `docs/release.md`。
 
+## 1.2.3-resultonly.1 · 2026-11-21
+
+### 中文
+
+- **长按选字。** 长按回复或自己发的消息，就地选中按到的词，拖两端改范围；选区上有复制、引用、分享、朗读、全选。自己发的消息也能引用了；朗读选中的文字会跳过其中的密码、密钥。
+- **酒馆脚本库。** 全局、预设和角色卡里的脚本都能运行，预设脚本能拿到 SillyTavern 的事件源和当前预设；脚本面板在画布里显示，开关写回预设。
+- **酒馆性能与省电渲染。** 大卡导入、卡库列表和长历史显示快数倍，卡库占用约降到三分之一；前端卡只渲染屏幕上看得见的消息。酒馆设置 › 显示里新增「省电渲染」（默认关），关掉卡片网页的毛玻璃，循环动画只播一遍。
+- **伙伴小屋更清晰。** 小屋按屏幕本身的像素密度渲染（之前最多按 2 倍），卡顿时临时降低的清晰度流畅后会自己升回来。
+- **新桌宠「小粉鱼」。** 第三只内置宠物，带 18 种状态动画和 3 段待机小动作；切换动作时淡入淡出。
+- **修复。** 同一路径的图片被覆盖后旧消息里显示成新图、模型选择里过长的名字显示不全、远程主机媒体请求的连接选择、关掉桌宠动画后一次性反应不归位、伙伴自动想起记忆时误把子代理配置当成对话内容，以及若干酒馆画布与深色模式的显示问题。
+- **保留 fork 改动。** 只看结果（result-only）同步、个人更新源，以及对应的文档与运行时补丁。结果模式补丁已跟随上游 `ds-harness-remote` 0.6.7 重新移植并更新 pin；插件按 `runtime/host-remote/build.sh` 单独构建，不随 APK 发布。
+- **验证范围。** 这一版主要经过自动测试和编译检查，长按选字、酒馆脚本和桌宠等界面改动没有逐项在真机上走完；遇到问题请导出诊断并开 issue。
+
+### English
+
+- **Long-press text selection.** Long-press a reply or your own message to select the word under your finger, then drag the handles. The selection bar offers Copy, Quote, Share, Read aloud and Select all. Your own messages can be quoted too, and reading a selection aloud skips any passwords or keys inside it.
+- **Tavern script library.** Scripts from the global scope, presets and character cards all run; preset scripts receive SillyTavern's event source and the current preset, and their panel appears in the canvas while toggles write back to the preset.
+- **Tavern performance and power-saving rendering.** Large-card import, the card list and long histories are several times faster, and card storage shrank to roughly a third. A front-end card renders only the messages on screen. Tavern settings › Display has a new Power-saving rendering switch (off by default) that drops frosted glass in card pages and plays looping animations once.
+- **Sharper companion room.** The room renders at the screen's own pixel density (previously capped at 2x), and sharpness temporarily lowered under load comes back once things are smooth again.
+- **New pet, Pink Fish.** The third built-in pet, with 18 state animations and 3 idle routines that cross-fade when the action changes.
+- **Fixes.** A replaced image at the same path showing as the new one in old messages, overlong model names in the model picker, connection choice for remote-host media requests, one-shot pet reactions not settling after animations are turned off, companion recall treating subagent config as chat content, and several Tavern canvas and dark-mode rendering issues.
+- **Kept from the fork.** Result-only session sync, the personal update feed, and their docs and runtime patches. The result-only patch was ported to upstream `ds-harness-remote` 0.6.7 and the pin updated; the host plugin is still built separately with `runtime/host-remote/build.sh` and is not shipped in the APK.
+- **Verification scope.** This build is covered by automated tests and compile checks; the selection, Tavern script and pet UI changes were not walked through on a device item by item. If something breaks, export diagnostics and open an issue.
+
 ## 1.2.2-resultonly.1 · 2026-11-20
 
 ### 中文
