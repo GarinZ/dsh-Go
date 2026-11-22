@@ -2,7 +2,7 @@
 
 每个版本先中文、后英文。发版时把对应版本的正文（不含版本标题）作为 Release 正文，见 `docs/release.md`。
 
-## 1.2.3-resultonly.1 · 2026-11-21
+## 1.2.4-resultonly.1 · 2026-11-22
 
 ### 中文
 
@@ -11,8 +11,13 @@
 - **酒馆性能与省电渲染。** 大卡导入、卡库列表和长历史显示快数倍，卡库占用约降到三分之一；前端卡只渲染屏幕上看得见的消息。酒馆设置 › 显示里新增「省电渲染」（默认关），关掉卡片网页的毛玻璃，循环动画只播一遍。
 - **伙伴小屋更清晰。** 小屋按屏幕本身的像素密度渲染（之前最多按 2 倍），卡顿时临时降低的清晰度流畅后会自己升回来。
 - **新桌宠「小粉鱼」。** 第三只内置宠物，带 18 种状态动画和 3 段待机小动作；切换动作时淡入淡出。
-- **修复。** 同一路径的图片被覆盖后旧消息里显示成新图、模型选择里过长的名字显示不全、远程主机媒体请求的连接选择、关掉桌宠动画后一次性反应不归位、伙伴自动想起记忆时误把子代理配置当成对话内容，以及若干酒馆画布与深色模式的显示问题。
-- **保留 fork 改动。** 只看结果（result-only）同步、个人更新源，以及对应的文档与运行时补丁。结果模式补丁已跟随上游 `ds-harness-remote` 0.6.7 重新移植并更新 pin；插件按 `runtime/host-remote/build.sh` 单独构建，不随 APK 发布。
+- **远程主机页重做。** 账号信息置顶，网页版入口并进远程主机页；点网页版会先判断 Remote 会话，页面刷新挪到首帧之后，精简历史始终显示，官方服务器不再显示地址。修复了 DSH Web 换票失败。
+- **求 star 提示。** 正式包会按 30 分钟、2、5、10、20 小时五档提醒给项目点 star，每次换一段话；构建时加 `--no-star` 可关，测试包和 beta 包本来就不带。
+- **匿名用量统计。** 新增模型调用、连接方式、会话轮次和更新下载的统计；设置里可以关闭，关闭后只保留匿名日活。
+- **引擎与渠道修复。** Bedrock Converse 的缓存用量计入统计；pi-ai 工具调用缺 ID 时补本地 ID；历史里名字为空的工具调用回放时改叫 unknown；自定义渠道接 Mistral 原生 /v1 时不再自动发送 store；新建模型的默认容量提示跟引擎一致。
+- **对话修复。** 同一路径的图片被覆盖后旧消息里显示成新图、模型选择里过长的名字显示不全、远程主机媒体请求的连接选择、关掉桌宠动画后一次性反应不归位、伙伴自动想起记忆时误把子代理配置当成对话内容，以及若干酒馆画布与深色模式的显示问题；草稿恢复在第一个无法解码的字符处截断，不再误删重音字母；复制的图片不再被当成文字粘贴；键盘聚焦到正在写的回复时也放行 Ctrl+A / Ctrl+C。
+- **Android 与性能。** ADB 自更新读到完整结果行就收尾；选区工具条的处理文字只向引擎问一次；经手机存储快捷链接打开子目录不再误报 EACCES；伙伴小屋和悬浮伙伴少画少重排，画面不变。
+- **保留 fork 改动。** 只看结果（result-only）同步、个人更新源，以及对应的文档与运行时补丁。结果模式补丁继续跟随上游 `ds-harness-remote` 0.6.7；插件按 `runtime/host-remote/build.sh` 单独构建，不随 APK 发布。
 - **验证范围。** 这一版主要经过自动测试和编译检查，长按选字、酒馆脚本和桌宠等界面改动没有逐项在真机上走完；遇到问题请导出诊断并开 issue。
 
 ### English
@@ -22,8 +27,13 @@
 - **Tavern performance and power-saving rendering.** Large-card import, the card list and long histories are several times faster, and card storage shrank to roughly a third. A front-end card renders only the messages on screen. Tavern settings › Display has a new Power-saving rendering switch (off by default) that drops frosted glass in card pages and plays looping animations once.
 - **Sharper companion room.** The room renders at the screen's own pixel density (previously capped at 2x), and sharpness temporarily lowered under load comes back once things are smooth again.
 - **New pet, Pink Fish.** The third built-in pet, with 18 state animations and 3 idle routines that cross-fade when the action changes.
-- **Fixes.** A replaced image at the same path showing as the new one in old messages, overlong model names in the model picker, connection choice for remote-host media requests, one-shot pet reactions not settling after animations are turned off, companion recall treating subagent config as chat content, and several Tavern canvas and dark-mode rendering issues.
-- **Kept from the fork.** Result-only session sync, the personal update feed, and their docs and runtime patches. The result-only patch was ported to upstream `ds-harness-remote` 0.6.7 and the pin updated; the host plugin is still built separately with `runtime/host-remote/build.sh` and is not shipped in the APK.
+- **Remote host page rework.** Your account sits at the top and the web console entry moved into the remote host page. Tapping it checks the Remote session first, the page refresh now runs after the first frame, the compact history switch is always shown, and the official server no longer shows an address. Fixes the DSH Web ticket exchange.
+- **Star prompt.** Release builds ask for a GitHub star on five tiers (30 minutes, 2, 5, 10 and 20 hours), with a different line each time; build with `--no-star` to skip it. Test and beta builds never carry it.
+- **Anonymous usage counts.** New counts for model calls, connection types, chat turns and update downloads; the setting can be turned off, after which only anonymous daily activity remains.
+- **Engine and provider fixes.** Bedrock Converse cache usage now counts toward the totals, pi-ai tool calls without an ID get a local one, replayed tool calls with an empty name become unknown, custom channels talking to Mistral's native /v1 no longer send store automatically, and new models show the same default capacity hint as the engine.
+- **Fixes.** A replaced image at the same path showing as the new one in old messages, overlong model names in the model picker, connection choice for remote-host media requests, one-shot pet reactions not settling after animations are turned off, companion recall treating subagent config as chat content, and several Tavern canvas and dark-mode rendering issues; a restored draft no longer drops accented letters, a copied image is no longer pasted as text, and Ctrl+A / Ctrl+C work while the keyboard is focused in the reply you are typing.
+- **Android and performance.** The ADB self-update stops at the complete result line, the selection bar's text action asks the engine once, opening a subdirectory through a phone-storage shortcut no longer reports EACCES, and the companion room and floating companion draw and re-layout less without changing the picture.
+- **Kept from the fork.** Result-only session sync, the personal update feed, and their docs and runtime patches. The result-only patch keeps following upstream `ds-harness-remote` 0.6.7; the host plugin is still built separately with `runtime/host-remote/build.sh` and is not shipped in the APK.
 - **Verification scope.** This build is covered by automated tests and compile checks; the selection, Tavern script and pet UI changes were not walked through on a device item by item. If something breaks, export diagnostics and open an issue.
 
 ## 1.2.2-resultonly.1 · 2026-11-20
