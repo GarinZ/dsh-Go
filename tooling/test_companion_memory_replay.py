@@ -264,7 +264,7 @@ class ReporterTests(unittest.TestCase):
     def test_invalid_cases_replace_old_green_summary_with_current_not_run(self):
         with tempfile.TemporaryDirectory() as folder:
             command = self.cli_fixture(folder, exit_code=0)
-            output = Path(folder) / 'result'
+            output = (Path(folder) / 'result').resolve()
             first = subprocess.run([*command, '--output', str(output)], capture_output=True, text=True, check=False)
             self.assertEqual(first.returncode, 0, first.stderr)
             original = json.loads((output / 'summary.json').read_text())
