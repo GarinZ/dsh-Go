@@ -2,6 +2,34 @@
 
 每个版本先中文、后英文。发版时把对应版本的正文（不含版本标题）作为 Release 正文，见 `docs/release.md`。
 
+## 1.2.6-resultonly.1 · 2026-11-24
+
+### 中文
+
+- **上游同步。** 合并上游 `main` 的 341 个提交（273 个非合并），重点是手机技能、伙伴通知、悬浮条和主题包，以及引擎冷启动、聊天与远程传输的性能。上一版 1.2.5 没有单独发布，它的改动也包含在本版里；这是 1.2.2 之后第一个实际发布的版本。
+- **手机技能。** 手机操控能把做过的事沉淀成技能：从隐私受限的任务轨迹里起草，审阅后保存；技能页区分手动停用和「最近不灵」自动停用，并记住停用原因；技能可以接到限定范围的引擎任务上，对话里也有对应卡片；伙伴留意通知有了单独设置页。
+- **伙伴。** 接入 Android 默认数字助理；留意到的通知可以整理成带来源的近期记忆，明确选中的通知也能收进记忆；小屋的记忆页和交代页不再随每次回复、键盘每一帧重查库；Host 封口改写已流出的开头时，小屋回复从头重读。
+- **手机操控界面。** 悬浮条改成顶部居中的岛，卡片里能看 DSH 干活，并能放进系统灵动岛；后台屏小窗可以最小化成贴边小球（按住可停止），收放中结束不残留；不打扰模式设置页重新排版。
+- **主题包与创意工坊。** 主题包接缝大扩、自带主题重做、创作器全字段可改；壁纸可以关掉自动遮罩并支持动图；创意工坊为三类投稿生成默认预览图；修了字体别名查重、同名字体互相覆盖、头像换图残留旧图等问题。
+- **启动与运行时更省。** 冷启动不再加载 OTel 语义约定聚合入口和 MIME 数据库，工具 schema 校验免源码生成；引擎归档去掉 openai、Anthropic SDK 和 Temporal polyfill 的 TypeScript 源码（每次安装少 608 个文件、约 6.6 MB）、minisearch 的 TS 源码和 Koffi 的 C/C++ 编译输入；Office 转换少占内存；Android 也用上鸿蒙的 HMR 空闲停轮询和缺失技能根监听。
+- **聊天与远程更快。** 流式预处理信任 0–3 个空格缩进的普通围栏，代码块重新着色时把旧前缀移出高亮缓存，活动条和输入框判空只去左侧空白；文件引用补全只给前两页排序；超过 256 KiB 的 Remote 消息和远程工作区大文件 base64 放到后台 isolate 解码；截止时间到了先派发已收到的消息，对端断开后会话立即关闭。
+- **修复。** 论坛草稿只清仍是这段正文的草稿，发送中关掉弹层、成功后也清；OpenAI 订阅的流与思考档位兼容、完成事件核实和退出恢复；退出伙伴小屋或预览提前返回时销毁 WebView 和播放器；分组验证码只认 3+3 位；伙伴回显或失败通知排队后不再并进上一条；宠物气泡尾巴按同样的卡片宽度上限测量；列表缓存变化都通知到读者。
+- **保留 fork 改动。** 只看结果（result-only）同步、个人更新源，以及对应的文档与运行时补丁。上游 Remote 插件已同步到 `d9cfb355`，但版本仍是 0.6.7，所以没有重打 result-only 补丁、没有升 pin；宿主插件仍按 `runtime/host-remote/build.sh` 单独构建，不随 APK 发布。
+- **验证范围。** 这一版并入 main 后过了 Linux CI 全绿，本地也跑了 analyze、非 golden 全量测试和两个 Dart 包测试；手机技能、伙伴通知、悬浮条岛和主题包等界面改动没有逐项真机走查。golden 测试在 macOS 上会因渲染器差异失败，按仓库规则只在 Linux CI 上重画。
+
+### English
+
+- **Upstream sync.** Merges 341 upstream commits to `main` (273 non-merge), centered on phone skills, companion notices, the floating bar and theme packs, plus engine cold-start, chat and remote-transport performance. The previous 1.2.5 was never published separately, so its changes are part of this build too; this is the first actual release after 1.2.2.
+- **Phone skills.** Phone control can turn what you do repeatedly into skills: draft them from privacy-bounded task traces, then review and save. The skills page separates manual suspension from “recently unreliable” automatic suspension and remembers the reason; skills can be bound to scoped engine tasks, with matching cards in chat; companion notice triage gets its own settings page.
+- **Companion.** Hooks into the Android default digital assistant; notices can be triaged into sourced recent memories, and explicitly selected notifications can be collected into memory; the room's memory and hand-over pages no longer re-query the database on every reply or every keyboard frame; when the host reseals an opening that already streamed, the room's reply is re-read from the start.
+- **Phone control UI.** The floating bar becomes a top-centered island whose card shows DSH at work, and it can live in the system dynamic island; the background-screen window minimizes to a stick-to-edge ball (hold to stop) and no longer leaves residue when it finishes mid-animation; the Do not disturb page is re-laid out.
+- **Theme packs and Workshop.** Theme-pack seams expand, bundled themes are redone, and the creator exposes every field; wallpapers can turn off automatic masking and animate; the Workshop generates default preview images for three submission types; fixes cover font alias de-duplication, same-name fonts overwriting each other and avatars keeping the old image.
+- **Cheaper startup and runtime.** Cold start no longer loads the OTel semantic-conventions aggregate entry or the MIME database, and tool-schema validation skips source generation; the engine archive drops the TypeScript sources of the openai and Anthropic SDKs and the Temporal polyfill (608 fewer files, about 6.6 MB per install), minisearch's TS sources and Koffi's C/C++ build inputs; Office conversion holds less memory; Android gains HarmonyOS's idle HMR polling and missing-skill-root watching.
+- **Faster chat and remote.** Streaming preprocessing trusts ordinary fences indented 0–3 spaces, code-block recoloring drops the old prefix from the highlight cache, and the activity bar and composer check emptiness by trimming only the left; file-reference completion ranks only the first two pages; Remote messages over 256 KiB and large remote-workspace base64 files decode on a background isolate; when a deadline hits, already-received messages are dispatched first, and a dropped peer closes the session immediately.
+- **Fixes.** Forum drafts are cleared only while they still hold this body, including when the sheet closes mid-send; OpenAI subscription streaming and thinking levels are compatible, completion events are verified and sign-out recovery is kept; leaving the companion room or backing out of a preview disposes the WebView and player; group verification codes must be 3+3 digits; queued echo or failure notices no longer merge into the previous reply; pet bubble tails measure with the same card width cap; list-cache changes always notify readers.
+- **Kept from the fork.** Result-only session sync, the personal update feed, and their docs and runtime patches. The upstream Remote plugin synced to `d9cfb355` but its version is still 0.6.7, so the result-only patch and pin were not rebuilt; the host plugin is still built separately with `runtime/host-remote/build.sh` and is not shipped in the APK.
+- **Verification scope.** This build merged into main with Linux CI green, and locally ran analyze, the non-golden full test suite and both Dart packages; the phone-skills, companion-notice, island and theme-pack UI changes were not walked through on a device item by item. Golden tests fail on macOS because of renderer differences, so they are only re-rendered on Linux CI, per repo rule.
+
 ## 1.2.5-resultonly.1 · 2026-11-23
 
 ### 中文
