@@ -2,6 +2,26 @@
 
 每个版本先中文、后英文。发版时把对应版本的正文（不含版本标题）作为 Release 正文，见 `docs/release.md`。
 
+## 1.2.7-resultonly.1 · 2026-11-25
+
+### 中文
+
+- **上游同步。** 合并上游 `main` 的 254 个提交（198 个非合并），主线是伙伴的「完整模式」：她的话直接送进主机上的 DSH 会话，带人设、时间与记忆上下文，手机业务工具经 App 回调执行；同时支持多伙伴、换角色不出戏、小屋通话与主会话入口。看屏新增「实时」档，各档节奏放快，每小时上限改成用户自己设、默认不限；常驻悬浮的她会贴边、闲时收边，长按打开她的菜单；她操作手机时可以边做边说；小屋菜单新增「清空对话」，完整模式下当场换成干净的新会话，旧会话留在主机上可查。
+- **聊天与界面性能。** 流式回复、思考栏、工具标题、结构化卡片、代码块和视频控件在增长时尽量复用已挂载的部件；整文件写入的改动卡只数行，翻更早记录时直接解析响应字节；终端输入法组字只更新预编辑浮条，DS Bot 单聊流式只重建正在写的那一行；二级页滚动、论坛详情、宠物站台与波光转场也去掉了每帧重复计算。
+- **引擎运行时。** 新增 brotli 静态词典同包压缩（每个 ABI 的引擎层少 755 KB）、并发冷开同一会话复用已核对的解码结果、会话投影已追上时直接返回当前状态、正文搜索按高亮前后字节差计命中数；Android 引擎层默认裁掉 ACP SDK 自带的 20 份 Vitest 用例，票据 PDF 提取改用 pdfjs-dist 同包的官方压缩版主模块和 Worker。
+- **修复。** 通话字幕不被拆开半个 emoji、渐显不再每帧重排；熄屏收起问一句或菜单后前台服务不再留到亮屏；切换主机后按所选对话打开，不再因会话号相同退回上一页；手机操控返回时回到发起的地方；vivo 计算器读不到显示屏时不再误报「没变化」；会话内图片释放时逐出缩略图缓存。
+- **保留 fork 改动。** 只看结果（result-only）同步、个人更新源，以及对应的文档与运行时补丁。上游 Remote 插件同步到 `2fd5f0a6`，包含 0.6.8 的预发布改动，但上游没有 `v0.6.8` release，发版仍按 `v0.6.7` tag，pin 不变，result-only 补丁未重打。
+- **验证范围。** 本地跑了 analyze、非 golden 全量 Flutter 测试和两个 Dart 包测试，并等 Linux CI 全绿后发布；伙伴完整模式、看屏、悬浮她等界面改动没有逐项真机走查，golden 只在 Linux CI 上比对。
+
+### English
+
+- **Upstream sync.** Merges 254 upstream commits to `main` (198 non-merge), centered on the companion's "full mode": her words go straight into a DSH session on the host, carrying persona, time and memory context, with phone business tools executed through App callbacks; multiple companions, role changes without breaking character, room calls and a main-session entry also land. Screen watching gains a "realtime" tier with faster cadences and a per-hour cap the user sets (unlimited by default); the always-on floating her docks to the edge and tucks away when idle, long-press opens her menu; she can narrate while operating the phone; the room menu gains "Clear conversation", which in full mode swaps in a clean new session on the spot while the old one stays archived on the host.
+- **Chat and UI performance.** Streaming replies, thinking bars, tool titles, structured cards, code blocks and video controls reuse mounted widgets as they grow; whole-file-write change cards count lines until a diff is opened, and older pages parse session/page straight from the response bytes; terminal IME composition only updates the pre-edit overlay, DS Bot streaming rebuilds only the line being written; shell scrolling, forum details, pet stations and the wave transition drop per-frame recomputation.
+- **Engine runtime.** Adds same-package compression for the brotli static dictionary (755 KB less engine per ABI), reuse of an already-verified decode when the same session is cold-opened concurrently, returning the current state when a session projection is already caught up, and counting body-search hits by the highlighted byte delta; the Android engine layer trims the ACP SDK's 20 bundled Vitest cases, and receipt PDF extraction uses pdfjs-dist's official compressed main module and worker.
+- **Fixes.** Call subtitles no longer split an emoji or re-measure every frame while fading in; the foreground service no longer survives screen-off after dismissing the ask bubble or menu; switching hosts opens the selected conversation even when the session id matches the previous page; phone control returns to where it was started; a vivo calculator whose screen cannot be read is no longer reported as "no change"; releasing an in-conversation image evicts its thumbnail cache.
+- **Kept from the fork.** Result-only session sync, the personal update feed, and their docs and runtime patches. The upstream Remote plugin is synced to `2fd5f0a6` and carries 0.6.8 pre-release changes, but upstream has no `v0.6.8` release, so publishing still follows the `v0.6.7` tag: the pin is unchanged and the result-only patch was not rebuilt.
+- **Validation.** Locally ran analyze, the non-golden Flutter suite and both Dart package suites, then waited for Linux CI to go green before publishing; companion full mode, screen watching and the floating her were not walked through item by item on a real phone, and goldens were compared only on Linux CI.
+
 ## 1.2.6-resultonly.1 · 2026-11-24
 
 ### 中文
