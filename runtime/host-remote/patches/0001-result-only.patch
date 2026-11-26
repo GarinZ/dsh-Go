@@ -1,5 +1,5 @@
 diff --git a/packages/plugin/src/harness-remote-bridge.ts b/packages/plugin/src/harness-remote-bridge.ts
-index d071007..ba8663a 100644
+index 07a972c..4907831 100644
 --- a/packages/plugin/src/harness-remote-bridge.ts
 +++ b/packages/plugin/src/harness-remote-bridge.ts
 @@ -1,4 +1,5 @@
@@ -8,7 +8,7 @@ index d071007..ba8663a 100644
  import { randomUUID } from 'node:crypto'
  import { homedir } from 'node:os'
  import { lstat, realpath, stat } from 'node:fs/promises'
-@@ -329,6 +330,12 @@ export class HarnessRemoteBridge {
+@@ -358,6 +359,12 @@ export class HarnessRemoteBridge {
  
    async call(input: unknown): Promise<TypertRpcResult> {
      const params = callSchema.parse(input) as HarnessRemoteCallParams
@@ -21,7 +21,7 @@ index d071007..ba8663a 100644
      if ((params.endpoint === 'remoteUploads/upload' || params.endpoint === 'remoteImages/upload') && this.uploadAttachment !== undefined) {
        const payload = z.object({ args: z.unknown() }).strict().parse(params.payload)
        return { ok: true, value: await this.uploadAttachment(payload.args) }
-@@ -406,9 +413,10 @@ export class HarnessRemoteBridge {
+@@ -455,9 +462,10 @@ export class HarnessRemoteBridge {
        // to canonical base64. (Codex/ACP workspace bridges already return the
        // wire shape and are left unchanged.)
        const filteredResult = filterSessionListProjections(params.endpoint, result)
@@ -33,7 +33,7 @@ index d071007..ba8663a 100644
        return reservation === undefined ? wireResult : this.terminal.result(params.endpoint, params.payload, wireResult, reservation)
      } catch (error) {
        if (reservation !== undefined) this.terminal.result(params.endpoint, params.payload, { ok: false, error: { code: 'FAILED', message: '', details: {} } }, reservation)
-@@ -596,6 +604,10 @@ export class HarnessRemoteBridge {
+@@ -687,6 +695,10 @@ export class HarnessRemoteBridge {
  
    async openStream(input: unknown): Promise<{ opened: true; streamId: string }> {
      const params = streamOpenSchema.parse(input) as HarnessRemoteStreamOpenParams
@@ -44,29 +44,31 @@ index d071007..ba8663a 100644
      this.assertAllowed(params.endpoint)
      if (params.endpoint.startsWith('pluginManager/')) throw new RpcError('METHOD_NOT_ALLOWED', 'Plugin management endpoints are not streams.')
      if (params.endpoint.startsWith('cotTranslation/')) throw new RpcError('METHOD_NOT_ALLOWED', 'Translation endpoints are not streams.')
-@@ -628,7 +640,7 @@ export class HarnessRemoteBridge {
-     if (params.endpoint === 'terminal/watch') source = this.terminal.watch(params.payload, source)
-     const historyFollow = params.endpoint === 'session/follow'
-     const sessionId = historyFollow ? journalSessionId(params.payload) : undefined
--    void this.pump(params.streamId, source, controller.signal, historyFollow, params.transferFrames, sessionId)
-+    void this.pump(params.streamId, source, controller.signal, historyFollow, params.transferFrames, sessionId, extracted.resultOnly)
+@@ -730,6 +742,7 @@ export class HarnessRemoteBridge {
+       params.transferFrames,
+       params.endpoint === '$events',
+       sessionId,
++      extracted.resultOnly,
+     )
      return { opened: true, streamId: params.streamId }
    }
- 
-@@ -751,11 +763,11 @@ export class HarnessRemoteBridge {
-     }
-   }
- 
--  private async pump(streamId: string, source: AsyncIterable<unknown>, signal: AbortSignal, historyFollow = false, transferFrames = false, sessionId?: string): Promise<void> {
-+  private async pump(streamId: string, source: AsyncIterable<unknown>, signal: AbortSignal, historyFollow = false, transferFrames = false, sessionId?: string, resultOnly = false): Promise<void> {
+@@ -862,6 +875,7 @@ export class HarnessRemoteBridge {
+     transferFrames = false,
+     forwardedEvents = false,
+     sessionId?: string,
++    resultOnly = false,
+   ): Promise<void> {
      let reason: HarnessRemoteStreamClosedData['reason'] = 'completed'
      let failure: HarnessRemoteStreamClosedData['failure']
+@@ -885,7 +899,7 @@ export class HarnessRemoteBridge {
+       else signal.addEventListener('abort', notifyClosed, { once: true })
+     }
      try {
 -      for await (const value of source) {
 +      for await (const value of resultOnly ? resultOnlyStream(source, signal) : source) {
          if (signal.aborted) break
          if (sessionId !== undefined) this.messageFiles.observe(sessionId, value)
-         const frame: HarnessRemoteFrameData = {
+         if (forwardedEvents && this.forwardedEventsObserver !== undefined) {
 diff --git a/packages/plugin/src/result-only.ts b/packages/plugin/src/result-only.ts
 new file mode 100644
 index 0000000..b75c8ad
@@ -385,18 +387,18 @@ index 0000000..b75c8ad
 +  if (marker !== undefined) yield { type: 'event', event: marker }
 +}
 diff --git a/packages/plugin/src/rpc-router.ts b/packages/plugin/src/rpc-router.ts
-index 3f62381..3953de1 100644
+index b46fe26..0cb8d6d 100644
 --- a/packages/plugin/src/rpc-router.ts
 +++ b/packages/plugin/src/rpc-router.ts
-@@ -26,6 +26,7 @@ import type { AuthenticatedPeerChannel } from './types.js'
+@@ -34,6 +34,7 @@ import type { AuthenticatedPeerChannel } from './types.js'
  import type { CodexPeerBridge } from './codex/peer-bridge.js'
  import type { AcpPeerBridge } from './acp/peer-bridge.js'
  import { RpcError, safeErrorCode, workspaceFileFailureReason } from './safe-error.js'
 +import { RESULT_ONLY_CAPABILITY } from './result-only.js'
+ import type { WorkspaceGitHost } from './workspace-git.js'
  import type { WorkspaceUploadHost } from './workspace-upload.js'
  import type { PluginRouteBridge } from './plugin-route-bridge.js'
- import type { RemoteCompactionOperations, RemoteCompactionOwner } from './remote-compaction-operations.js'
-@@ -224,7 +225,7 @@ export class RpcRouter {
+@@ -240,7 +241,7 @@ export class RpcRouter {
          const hostCapabilities = (await this.capabilities()).filter(capability => capability !== BINARY_UPLOAD_CAPABILITY && capability !== LAN_UPLOAD_CAPABILITY)
          const remoteAvailable = hostCapabilities.includes('harness.remote.v1') || hostCapabilities.includes('harness.remote.v3')
          const capabilities = [...new Set([...hostCapabilities, 'remote.history.compact.v1',
@@ -404,7 +406,7 @@ index 3f62381..3953de1 100644
 +          ...(this.harnessRemote === undefined || !remoteAvailable ? [] : ['harness.remote.stream.transfer.v1', RESULT_ONLY_CAPABILITY]),
            ...(this.compaction === undefined ? [] : [REMOTE_COMPACTION_CAPABILITY]),
            ...(this.workspaceUpload === undefined || !hostCapabilities.includes('workspace.upload.v1') ? [] : [BINARY_UPLOAD_CAPABILITY, ...(this.lanUpload ? [LAN_UPLOAD_CAPABILITY] : [])]),
-           ...(this.sessionTransfer?.capabilities() ?? []),
+           ...(this.workspaceGit === undefined ? [] : [WORKSPACE_GIT_CAPABILITY]),
 diff --git a/packages/plugin/tests/result-only.test.ts b/packages/plugin/tests/result-only.test.ts
 new file mode 100644
 index 0000000..0022dff
