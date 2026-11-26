@@ -2,6 +2,22 @@
 
 每个版本先中文、后英文。发版时把对应版本的正文（不含版本标题）作为 Release 正文，见 `docs/release.md`。
 
+## 1.2.8-resultonly.1 · 2026-11-26
+
+### 中文
+
+- **上游同步。** 合并上游 `main` 到 `1.4.0`（7 个提交）：创意工坊投稿完成后能正确回到「我的投稿」，主题投稿与 ZIP 入口恢复可用；长按消息直接出现「编辑后重发」；上游发布说明改为以功能与修复为主。
+- **Remote 插件升级。** pin 从 `0.6.7` 升到正式的 `v0.6.8`（`6b36cdc1`），result-only 补丁按 0.6.8 重打，并在该 tag 上完成打补丁、类型检查与插件测试后重新打包宿主插件。0.6.8 带来会话接力、工作区 Git diff 审查、待处理收件箱、实时任务通知、移动端会话操作，以及 Host 连接与鸿蒙客户端改进。插件主分支同步到 `d2101fe8`（比 tag 多 8 个提交）；pin 仍按 release tag，漂移只记录、不为同一版本重做。
+- **保留 fork 改动。** 只看结果（result-only）同步、个人更新源，以及对应的文档与运行时补丁。
+- **验证范围。** 宿主插件在 `v0.6.8` 源码上重建，打补丁、类型检查与 103 个测试文件（1018 例通过、5 例跳过）全部通过；本地跑了 Flutter analyze、受影响界面与状态测试，以及两个 Dart 包的分析与全量测试；golden 只在 Linux CI 上比对，真机与模拟器验证结果见本次 Release 说明。
+
+### English
+
+- **Upstream sync.** Merges upstream `main` to `1.4.0` (7 commits): a finished Workshop submission now returns to "My submissions" correctly, and theme submission plus the ZIP entry work again; long-pressing a message offers "edit and resend" directly; upstream's release notes now lead with features and fixes.
+- **Remote plugin upgrade.** The pin moves from `0.6.7` to the released `v0.6.8` (`6b36cdc1`); the result-only patch is re-ported to 0.6.8, and the host plugin is rebuilt from that tag after patching, type-checking and running the plugin tests. 0.6.8 brings agent handoff, workspace Git diff review, the attention inbox, live task notifications, mobile conversation actions, and Host connection plus HarmonyOS client improvements. The plugin's main branch is synced to `d2101fe8` (8 commits past the tag); the pin still follows the release tag, and the drift is recorded rather than re-pinned for the same version.
+- **Kept from the fork.** Result-only session sync, the personal update feed, and their docs and runtime patches.
+- **Verification scope.** The host plugin was rebuilt from the `v0.6.8` source with patch application, type-check and 103 test files (1018 passed, 5 skipped) all green; locally ran Flutter analyze, the affected UI and state tests, and analysis plus full tests for both Dart packages; goldens are compared only on Linux CI, and device/emulator results are in this release's notes.
+
 ## 1.2.7-resultonly.1 · 2026-11-25
 
 ### 中文

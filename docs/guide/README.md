@@ -1,6 +1,6 @@
 # dsh-go 使用说明 · User guide
 
-> dsh-go 1.2.7-resultonly.1
+> dsh-go 1.2.8-resultonly.1
 
 ## 中文
 
