@@ -2,6 +2,24 @@
 
 每个版本先中文、后英文。发版时把对应版本的正文（不含版本标题）作为 Release 正文，见 `docs/release.md`。
 
+## 1.2.9-resultonly.1 · 2026-11-27
+
+### 中文
+
+- **上游同步。** 合并上游 `main` 的 32 个提交（到 `89095085b`，`v1.4.0` 之后）：会话页脚与运行详情显示解码速度（tokens/sec，速度数字并入 token 计数，子代理按 lineage 统计）；远程连接保活可单独设置（后台静音音频、大致位置），后台连接独立维持、同步状态不再打断重连；更新检查并行比较各个更新源并选版本最高者，回到前台重新检查，缓存的安装包离线可用；首次启动说明匿名统计与隐私边界（含 Android ML Kit 的独立统计）；OpenAI 订阅模型补齐图片能力；鸿蒙真机修复图像打包、Inspector 与生命周期同步。
+- **Remote 插件：只记录漂移。** 插件主分支同步到 `1e857d01`（比 `v0.6.8` tag 多 19 个提交，含 ACP 流槽位回收、目录查询放大与实时任务标题的修复、设备身份恢复）。插件版本仍是 `0.6.8`，所以 pin、result-only 补丁和宿主插件包都不重做。
+- **已知功能缺口。** 本版 App 支持 DS Bot 经隧道走远程，但 pin 的 0.6.8 插件还没有对应的 `dsBot/call`、`dsBot/feed` 桥接（相关提交在 tag 之后），因此这个新功能要等插件 pin 前移后才能用；本机引擎与其余远程连接不受影响。
+- **保留 fork 改动。** 只看结果（result-only）同步、个人更新源，以及对应的文档与运行时补丁。
+- **验证范围。** 本地跑 Flutter analyze、受影响的界面/状态/更新/远程测试（功能性用例全过；golden 像素比对因 macOS 渲染差异不符，按仓库约定只在 Linux CI 比对）、两个 Dart 包的分析与全量测试、指南与文案检查；真机与模拟器结果见本次 Release 说明。
+
+### English
+
+- **Upstream sync.** Merges 32 upstream `main` commits (to `89095085b`, after `v1.4.0`): the chat footnote and run details show decoding speed (tokens/sec, folded into the token figures, subagents counted from their lineage); remote connection protection is configurable on its own (background silent audio, approximate location), the background connection is kept independently and sync state no longer interrupts reconnects; update checks compare all sources in parallel and pick the highest version, recheck on return to foreground, and cached packages stay usable offline; first launch explains anonymous stats and privacy boundaries (including Android ML Kit's own stats); OpenAI subscription models gain image capability; HarmonyOS device fixes for image packaging, Inspector and lifecycle sync.
+- **Remote plugin: drift recorded only.** The plugin's main branch is synced to `1e857d01` (19 commits past the `v0.6.8` tag, including ACP stream-slot release, catalog query amplification and live-task title fixes, and device identity recovery). The plugin version is still `0.6.8`, so the pin, the result-only patch and the host plugin bundle are not rebuilt.
+- **Known gap.** This app version can run DS Bot over the tunnel, but the pinned 0.6.8 plugin does not yet bridge `dsBot/call` and `dsBot/feed` (those commits come after the tag), so the new feature only works once the plugin pin moves; the local engine and other remote connections are unaffected.
+- **Kept from the fork.** Result-only session sync, the personal update feed, and their docs and runtime patches.
+- **Verification scope.** Locally ran Flutter analyze, the affected UI, state, update and remote tests (functional cases all pass; golden pixel comparisons differ under macOS rendering and are only compared on Linux CI as the repository requires), analysis plus full tests for both Dart packages, and the guide and localization checks; device and emulator results are in this release's notes.
+
 ## 1.2.8-resultonly.1 · 2026-11-26
 
 ### 中文
