@@ -2,6 +2,24 @@
 
 每个版本先中文、后英文。发版时把对应版本的正文（不含版本标题）作为 Release 正文，见 `docs/release.md`。
 
+## 1.2.10-resultonly.1 · 2026-11-28
+
+### 中文
+
+- **上游同步。** 合并上游 `main` 的 `release: 1.4.1`（`3b9fbbbb5`）。上游这次只改版本号与发布说明，1.4.1 的代码改动（解码速度、远程后台保活、更新检查、DS Bot 中继等）上一版已全部包含；因此本版代码与 `1.2.9-resultonly.1` 相同，仅把 fork 的版本名与说明对齐到上游 1.4.1 的发布状态。
+- **Remote 插件：只记录漂移。** 插件主分支从 `1e857d01` 同步到 `848922d9`（比 `v0.6.8` tag 多 46 个提交，含 Kimi Code ACP、Host 重连与上传修复，以及 `0.6.9` 的版本号提交）；上游仍未发布 `v0.6.9`，所以 pin 保持 `0.6.8`，result-only 补丁与宿主插件包不重做。
+- **已知功能缺口。** `dsBot/call`、`dsBot/feed` 的桥接（上游 #605）仍在 `v0.6.8` tag 之后，pin 未前移，DS Bot 经中继的路径继续不可用；本机引擎与其余远程连接不受影响。
+- **保留 fork 改动。** 只看结果（result-only）同步、个人更新源，以及对应的文档与运行时补丁。
+- **验证范围。** 合并结果与上一版代码一致：本地跑了 Flutter analyze、版本相关测试、两个 Dart 包的分析与全量测试、指南与文案检查；完整 CI 在 Linux 上跑。真机与模拟器结果见本次 Release 说明。
+
+### English
+
+- **Upstream sync.** Merges upstream `main`'s `release: 1.4.1` (`3b9fbbbb5`). This upstream commit only changes versions and release notes; all of 1.4.1's code changes (decoding speed, remote background protection, update checks, DS Bot over the relay, and more) were already included in the previous release, so this version's code is identical to `1.2.9-resultonly.1` and only the fork's version name and notes are aligned with upstream's 1.4.1 release.
+- **Remote plugin: drift recorded only.** The plugin's main branch moves from `1e857d01` to `848922d9` (46 commits past the `v0.6.8` tag, including Kimi Code ACP, Host reconnect and upload fixes, and the `0.6.9` version bump); upstream has not published `v0.6.9`, so the pin stays at `0.6.8` and the result-only patch and host plugin bundle are not rebuilt.
+- **Known gap.** The `dsBot/call` and `dsBot/feed` bridge (upstream #605) is still past the `v0.6.8` tag and the pin has not moved, so DS Bot over the relay remains unavailable; the local engine and other remote connections are unaffected.
+- **Kept from the fork.** Result-only session sync, the personal update feed, and their docs and runtime patches.
+- **Verification scope.** The merge result is identical to the previous release's code: locally ran Flutter analyze, version-related tests, analysis plus full tests for both Dart packages, and the guide and localization checks; the full CI runs on Linux. Device and emulator results are in this release's notes.
+
 ## 1.2.9-resultonly.1 · 2026-11-27
 
 ### 中文
